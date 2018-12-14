@@ -47,6 +47,7 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.parseFieldsV
 public class DocumentField implements Streamable, ToXContentFragment, Iterable<Object> {
 
     private String name;
+    private Boolean isMetadataField;
     private List<Object> values;
 
     private DocumentField() {
