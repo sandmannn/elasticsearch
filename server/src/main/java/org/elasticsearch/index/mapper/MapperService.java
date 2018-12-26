@@ -737,8 +737,16 @@ public class MapperService extends AbstractIndexComponent implements Closeable {
         return META_FIELDS.contains(fieldName);
     }
 
+    public boolean isMetadataFieldInstance(String fieldName) {
+        return MapperService.isMetadataField(fieldName);
+    }
+
     public static String[] getAllMetaFields() {
         return META_FIELDS.toArray(String.class);
+    }
+
+    public String[] getAllMetaFieldsInstance() {
+        return MapperService.getAllMetaFields();
     }
 
     /** An analyzer wrapper that can lookup fields within the index mappings */
