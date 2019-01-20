@@ -103,7 +103,7 @@ public class ExpandSearchPhaseTests extends ESTestCase {
             };
 
             SearchHits hits = new SearchHits(new SearchHit[]{new SearchHit(1, "ID", new Text("type"),
-                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue))))},
+                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue), false)))},
                 1, 1.0F);
             InternalSearchResponse internalSearchResponse = new InternalSearchResponse(hits, null, null, null, false, null, 1);
             AtomicReference<SearchResponse> reference = new AtomicReference<>();
@@ -157,9 +157,9 @@ public class ExpandSearchPhaseTests extends ESTestCase {
         };
 
         SearchHits hits = new SearchHits(new SearchHit[]{new SearchHit(1, "ID", new Text("type"),
-            Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue)))),
+            Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue), false))),
             new SearchHit(2, "ID2", new Text("type"),
-                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue))))}, 1,
+                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue), false)))}, 1,
             1.0F);
         InternalSearchResponse internalSearchResponse = new InternalSearchResponse(hits, null, null, null, false, null, 1);
         AtomicReference<SearchResponse> reference = new AtomicReference<>();
@@ -189,9 +189,9 @@ public class ExpandSearchPhaseTests extends ESTestCase {
         };
 
         SearchHits hits = new SearchHits(new SearchHit[]{new SearchHit(1, "ID", new Text("type"),
-            Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(null)))),
+            Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(null), false))),
             new SearchHit(2, "ID2", new Text("type"),
-                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(null))))}, 1, 1.0F);
+                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(null), false)))}, 1, 1.0F);
         InternalSearchResponse internalSearchResponse = new InternalSearchResponse(hits, null, null, null, false, null, 1);
         AtomicReference<SearchResponse> reference = new AtomicReference<>();
         ExpandSearchPhase phase = new ExpandSearchPhase(mockSearchPhaseContext, internalSearchResponse, r ->

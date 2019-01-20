@@ -53,9 +53,10 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
     private DocumentField() {
     }
 
-    public DocumentField(String name, List<Object> values) {
+    public DocumentField(String name, List<Object> values, boolean isMetadataField) {
         this.name = Objects.requireNonNull(name, "name must not be null");
         this.values = Objects.requireNonNull(values, "values must not be null");
+        this.isMetadataField = isMetadataField;
     }
 
     /**
@@ -86,6 +87,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
      * @return The field is a metadata field
      */
     public boolean isMetadataField() {
+//        return this.isMetadataField;
         return MapperService.isMetadataField(name);
     }
 
@@ -142,7 +144,8 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
             values.add(parseFieldsValue(parser));
         }
-        return new DocumentField(fieldName, values);
+        
+        return new DocumentField(fieldName, values, false);
     }
 
     @Override

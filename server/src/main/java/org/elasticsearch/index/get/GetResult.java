@@ -32,6 +32,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.mapper.IgnoredFieldMapper;
+import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.index.mapper.SourceFieldMapper;
 import org.elasticsearch.search.lookup.SourceLookup;
 
@@ -300,7 +301,8 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 } else if (FOUND.equals(currentFieldName)) {
                     found = parser.booleanValue();
                 } else {
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, Collections.singletonList(parser.objectText())));
+                    boolean isMetadataField = MapperService.isMetadataField(currentFieldName);
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, Collections.singletonList(parser.objectText()), isMetadataField));
                 }
             } else if (token == XContentParser.Token.START_OBJECT) {
                 if (SourceFieldMapper.NAME.equals(currentFieldName)) {
@@ -320,7 +322,8 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 }
             } else if (token == XContentParser.Token.START_ARRAY) {
                 if (IgnoredFieldMapper.NAME.equals(currentFieldName)) {
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list()));
+                    boolean isMetadataField = MapperService.isMetadataField(currentFieldName);
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list(), isMetadataField));
                 } else {
                     parser.skipChildren(); // skip potential inner arrays for forward compatibility
                 }
