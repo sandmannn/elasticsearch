@@ -145,18 +145,12 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.currentToken(), parser::getTokenLocation);
         String fieldName = parser.currentName();
         XContentParser.Token token = parser.nextToken();
-        if (token == XContentParser.Token.START_ARRAY) {
-            // old format
-            List<Object> values = new ArrayList<>();
-            while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
-                values.add(parseFieldsValue(parser));
-            }
-            return new DocumentField(fieldName, values, inMetadataArea);
-            
-        }   else {
-            String message = "Failed to parse object: unexpected token [%s] found";
-            throw new ParsingException(parser.getTokenLocation(), String.format(Locale.ROOT, message, token));
+        ensureExpectedToken(XContentParser.Token.START_ARRAY, token, parser::getTokenLocation);
+        List<Object> values = new ArrayList<>();
+        while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
+            values.add(parseFieldsValue(parser));
         }
+        return new DocumentField(fieldName, values, inMetadataArea);
     }
 
     @Override
