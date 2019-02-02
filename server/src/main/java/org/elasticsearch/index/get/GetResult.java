@@ -33,6 +33,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.mapper.IgnoredFieldMapper;
+import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.index.mapper.SourceFieldMapper;
 import org.elasticsearch.search.lookup.SourceLookup;
 
@@ -338,7 +339,9 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 } else if (FOUND.equals(currentFieldName)) {
                     found = parser.booleanValue();
                 } else {
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, Collections.singletonList(parser.objectText())));
+                    // This fields is in metadata area of the xContent, thus should be treated as metadata
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, 
+                            Collections.singletonList(parser.objectText()), true));
                 }
             } else if (token == XContentParser.Token.START_OBJECT) {
                 if (SourceFieldMapper.NAME.equals(currentFieldName)) {
@@ -350,7 +353,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                     }
                 } else if (FIELDS.equals(currentFieldName)) {
                     while(parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                        DocumentField getField = DocumentField.fromXContent(parser);
+                        DocumentField getField = DocumentField.fromXContent(parser, false);
                         fields.put(getField.getName(), getField);
                     }
                 } else {
@@ -358,7 +361,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 }
             } else if (token == XContentParser.Token.START_ARRAY) {
                 if (IgnoredFieldMapper.NAME.equals(currentFieldName)) {
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list()));
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list(), false));
                 } else {
                     parser.skipChildren(); // skip potential inner arrays for forward compatibility
                 }
