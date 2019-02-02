@@ -68,6 +68,7 @@ import org.elasticsearch.plugins.MapperPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESSingleNodeTestCase;
 import org.elasticsearch.test.IndexSettingsModule;
+import org.elasticsearch.test.VersionUtils;
 import org.elasticsearch.test.hamcrest.RegexMatcher;
 
 import java.io.IOException;
@@ -231,12 +232,12 @@ public class IndicesServiceTests extends ESSingleNodeTestCase {
         }
 
         GatewayMetaState gwMetaState = getInstanceFromNode(GatewayMetaState.class);
-        MetaData meta = gwMetaState.loadMetaState();
+        MetaData meta = gwMetaState.getMetaData();
         assertNotNull(meta);
         assertNotNull(meta.index("test"));
         assertAcked(client().admin().indices().prepareDelete("test"));
 
-        meta = gwMetaState.loadMetaState();
+        meta = gwMetaState.getMetaData();
         assertNotNull(meta);
         assertNull(meta.index("test"));
 
@@ -515,9 +516,10 @@ public class IndicesServiceTests extends ESSingleNodeTestCase {
 
     public void testIsMetaDataField() {
         IndicesService indicesService = getIndicesService();
-        assertFalse(indicesService.isMetaDataField(randomAlphaOfLengthBetween(10, 15)));
+        final Version randVersion = VersionUtils.randomVersionBetween(random(), Version.V_6_0_0, Version.CURRENT);
+        assertFalse(indicesService.isMetaDataField(randVersion, randomAlphaOfLengthBetween(10, 15)));
         for (String builtIn : IndicesModule.getBuiltInMetaDataFields()) {
-            assertTrue(indicesService.isMetaDataField(builtIn));
+            assertTrue(indicesService.isMetaDataField(randVersion, builtIn));
         }
     }
 

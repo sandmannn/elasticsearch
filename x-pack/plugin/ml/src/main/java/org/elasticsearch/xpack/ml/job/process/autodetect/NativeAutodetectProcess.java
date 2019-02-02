@@ -28,6 +28,7 @@ import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Autodetect process using native code.
@@ -42,7 +43,7 @@ class NativeAutodetectProcess extends AbstractNativeProcess implements Autodetec
 
     NativeAutodetectProcess(String jobId, InputStream logStream, OutputStream processInStream, InputStream processOutStream,
                             OutputStream processRestoreStream, int numberOfFields, List<Path> filesToDelete,
-                            AutodetectResultsParser resultsParser, Runnable onProcessCrash) {
+                            AutodetectResultsParser resultsParser, Consumer<String> onProcessCrash) {
         super(jobId, logStream, processInStream, processOutStream, processRestoreStream, numberOfFields, filesToDelete, onProcessCrash);
         this.resultsParser = resultsParser;
     }
@@ -116,5 +117,18 @@ class NativeAutodetectProcess extends AbstractNativeProcess implements Autodetec
 
     private AutodetectControlMsgWriter newMessageWriter() {
         return new AutodetectControlMsgWriter(recordWriter(), numberOfFields());
+    }
+
+    @Override
+    public void consumeAndCloseOutputStream() {
+        try {
+            byte[] buff = new byte[512];
+            while (processOutStream().read(buff) >= 0) {
+                // Do nothing
+            }
+            processOutStream().close();
+        } catch (IOException e) {
+            throw new RuntimeException("Error closing result parser input stream", e);
+        }
     }
 }

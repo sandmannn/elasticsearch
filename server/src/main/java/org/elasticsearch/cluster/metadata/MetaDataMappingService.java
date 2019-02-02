@@ -37,6 +37,8 @@ import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.compress.CompressedXContent;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentHelper;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.Index;
 import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.mapper.DocumentMapper;
@@ -263,7 +265,7 @@ public class MetaDataMappingService {
                 updateList.add(indexMetaData);
                 // try and parse it (no need to add it here) so we can bail early in case of parsing exception
                 DocumentMapper newMapper;
-                DocumentMapper existingMapper = mapperService.documentMapper(request.type());
+                DocumentMapper existingMapper = mapperService.documentMapper();
                 if (MapperService.DEFAULT_MAPPING.equals(request.type())) {
                     // _default_ types do not go through merging, but we do test the new settings. Also don't apply the old default
                     newMapper = mapperService.parse(request.type(), mappingUpdateSource, false);
@@ -276,8 +278,10 @@ public class MetaDataMappingService {
                 }
                 if (mappingType == null) {
                     mappingType = newMapper.type();
-                } else if (mappingType.equals(newMapper.type()) == false) {
-                    throw new InvalidTypeNameException("Type name provided does not match type name within mapping definition");
+                } else if (mappingType.equals(newMapper.type()) == false
+                        && (isMappingSourceTyped(mapperService, mappingUpdateSource, request.type())
+                                || mapperService.resolveDocumentType(mappingType).equals(newMapper.type()) == false)) {
+                    throw new InvalidTypeNameException("Type name provided does not match type name within mapping definition.");
                 }
             }
             assert mappingType != null;
@@ -295,12 +299,21 @@ public class MetaDataMappingService {
                 // we use the exact same indexService and metadata we used to validate above here to actually apply the update
                 final Index index = indexMetaData.getIndex();
                 final MapperService mapperService = indexMapperServices.get(index);
+
+                // If the _type name is _doc and there is no _doc top-level key then this means that we
+                // are handling a typeless call. In such a case, we override _doc with the actual type
+                // name in the mappings. This allows to use typeless APIs on typed indices.
+                String typeForUpdate = mappingType; // the type to use to apply the mapping update
+                if (isMappingSourceTyped(mapperService, mappingUpdateSource, request.type()) == false) {
+                    typeForUpdate = mapperService.resolveDocumentType(mappingType);
+                }
+
                 CompressedXContent existingSource = null;
-                DocumentMapper existingMapper = mapperService.documentMapper(mappingType);
+                DocumentMapper existingMapper = mapperService.documentMapper(typeForUpdate);
                 if (existingMapper != null) {
                     existingSource = existingMapper.mappingSource();
                 }
-                DocumentMapper mergedMapper = mapperService.merge(mappingType, mappingUpdateSource, MergeReason.MAPPING_UPDATE);
+                DocumentMapper mergedMapper = mapperService.merge(typeForUpdate, mappingUpdateSource, MergeReason.MAPPING_UPDATE);
                 CompressedXContent updatedSource = mergedMapper.mappingSource();
 
                 if (existingSource != null) {
@@ -356,6 +369,15 @@ public class MetaDataMappingService {
         public String describeTasks(List<PutMappingClusterStateUpdateRequest> tasks) {
             return String.join(", ", tasks.stream().map(t -> (CharSequence)t.type())::iterator);
         }
+    }
+
+    /**
+     * Returns {@code true} if the given {@code mappingSource} includes a type
+     * as a top-level object.
+     */
+    private static boolean isMappingSourceTyped(MapperService mapperService, CompressedXContent mappingSource, String type) {
+        Map<String, Object> root = XContentHelper.convertToMap(mappingSource.compressedReference(), true, XContentType.JSON).v2();
+        return root.size() == 1 && root.keySet().iterator().next().equals(type);
     }
 
     public void putMapping(final PutMappingClusterStateUpdateRequest request, final ActionListener<ClusterStateUpdateResponse> listener) {

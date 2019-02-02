@@ -43,7 +43,6 @@ class PrecommitTasks {
         List<Task> precommitTasks = [
             configureCheckstyle(project),
             configureForbiddenApisCli(project),
-            configureNamingConventions(project),
             project.tasks.create('forbiddenPatterns', ForbiddenPatternsTask.class),
             project.tasks.create('licenseHeaders', LicenseHeadersTask.class),
             project.tasks.create('filepermissions', FilePermissionsTask.class),
@@ -91,7 +90,17 @@ class PrecommitTasks {
     }
 
     static Task configureTestingConventions(Project project) {
-        project.getTasks().create("testingConventions", TestingConventionsTasks.class)
+        TestingConventionsTasks task = project.getTasks().create("testingConventions", TestingConventionsTasks.class)
+        task.naming {
+            Tests {
+                baseClass "org.apache.lucene.util.LuceneTestCase"
+            }
+            IT {
+                baseClass "org.elasticsearch.test.ESIntegTestCase"
+                baseClass 'org.elasticsearch.test.rest.ESRestTestCase'
+            }
+        }
+        return task
     }
 
     private static Task configureJarHell(Project project) {
@@ -123,8 +132,16 @@ class PrecommitTasks {
         project.tasks.withType(CheckForbiddenApis) {
             dependsOn(buildResources)
             targetCompatibility = project.runtimeJavaVersion >= JavaVersion.VERSION_1_9 ?
-                    project.runtimeJavaVersion.getMajorVersion() :
-                    project.runtimeJavaVersion
+                    project.runtimeJavaVersion.getMajorVersion() : project.runtimeJavaVersion
+            if (project.runtimeJavaVersion > JavaVersion.VERSION_11) {
+                doLast {
+                    project.logger.info(
+                            "Forbidden APIs does not support java version past 11. Will use the signatures from 11 for ",
+                            project.runtimeJavaVersion
+                    )
+                }
+                targetCompatibility = JavaVersion.VERSION_11.getMajorVersion()
+            }
             bundledSignatures = [
                     "jdk-unsafe", "jdk-deprecated", "jdk-non-portable", "jdk-system-out"
             ]
@@ -190,8 +207,7 @@ class PrecommitTasks {
         Task checkstyleTask = project.tasks.create('checkstyle')
         // Apply the checkstyle plugin to create `checkstyleMain` and `checkstyleTest`. It only
         // creates them if there is main or test code to check and it makes `check` depend
-        // on them. But we want `precommit` to depend on `checkstyle` which depends on them so
-        // we have to swap them.
+        // on them. We also want `precommit` to depend on `checkstyle`.
         project.pluginManager.apply('checkstyle')
         project.checkstyle {
             config = project.resources.text.fromFile(checkstyleConf, 'UTF-8')
@@ -202,7 +218,6 @@ class PrecommitTasks {
         }
 
         project.tasks.withType(Checkstyle) { task ->
-            project.tasks[JavaBasePlugin.CHECK_TASK_NAME].dependsOn.remove(task)
             checkstyleTask.dependsOn(task)
             task.dependsOn(copyCheckstyleConf)
             task.inputs.file(checkstyleSuppressions)
@@ -212,15 +227,6 @@ class PrecommitTasks {
         }
 
         return checkstyleTask
-    }
-
-    private static Task configureNamingConventions(Project project) {
-        if (project.sourceSets.findByName("test")) {
-            Task namingConventionsTask = project.tasks.create('namingConventions', NamingConventionsTask)
-            namingConventionsTask.javaHome = project.runtimeJavaHome
-            return namingConventionsTask
-        }
-        return null
     }
 
     private static Task configureLoggerUsage(Project project) {

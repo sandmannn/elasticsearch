@@ -12,13 +12,13 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksAction;
 import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
-import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
 import org.elasticsearch.action.admin.indices.refresh.RefreshResponse;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.action.admin.indices.stats.ShardStats;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.ActiveShardCount;
 import org.elasticsearch.analysis.common.CommonAnalysisPlugin;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
@@ -52,6 +52,7 @@ import org.elasticsearch.index.shard.ShardId;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.store.IndicesStore;
 import org.elasticsearch.license.LicenseService;
+import org.elasticsearch.license.LicensesMetaData;
 import org.elasticsearch.persistent.PersistentTasksCustomMetaData;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.script.ScriptService;
@@ -64,9 +65,11 @@ import org.elasticsearch.test.MockHttpTransport;
 import org.elasticsearch.test.NodeConfigurationSource;
 import org.elasticsearch.test.TestCluster;
 import org.elasticsearch.test.discovery.TestZenDiscovery;
+import org.elasticsearch.test.transport.MockTransportService;
 import org.elasticsearch.transport.TransportService;
+import org.elasticsearch.transport.nio.MockNioTransportPlugin;
+import org.elasticsearch.xpack.ccr.CcrSettings;
 import org.elasticsearch.xpack.ccr.LocalStateCcr;
-import org.elasticsearch.xpack.ccr.index.engine.FollowingEngine;
 import org.elasticsearch.xpack.core.XPackSettings;
 import org.elasticsearch.xpack.core.ccr.AutoFollowMetadata;
 import org.elasticsearch.xpack.core.ccr.ShardFollowNodeTaskStatus;
@@ -117,27 +120,32 @@ public abstract class CcrIntegTestCase extends ESTestCase {
         }
 
         stopClusters();
-        NodeConfigurationSource nodeConfigurationSource = createNodeConfigurationSource();
         Collection<Class<? extends Plugin>> mockPlugins = Arrays.asList(ESIntegTestCase.TestSeedPlugin.class,
-            TestZenDiscovery.TestPlugin.class, MockHttpTransport.TestPlugin.class, getTestTransportPlugin());
+            TestZenDiscovery.TestPlugin.class, MockHttpTransport.TestPlugin.class, MockTransportService.TestPlugin.class,
+            MockNioTransportPlugin.class);
 
         InternalTestCluster leaderCluster = new InternalTestCluster(randomLong(), createTempDir(), true, true, numberOfNodesPerCluster(),
-            numberOfNodesPerCluster(), UUIDs.randomBase64UUID(random()), nodeConfigurationSource, 0, "leader", mockPlugins,
+            numberOfNodesPerCluster(), UUIDs.randomBase64UUID(random()), createNodeConfigurationSource(null), 0, "leader", mockPlugins,
             Function.identity());
-        InternalTestCluster followerCluster = new InternalTestCluster(randomLong(), createTempDir(), true, true, numberOfNodesPerCluster(),
-            numberOfNodesPerCluster(), UUIDs.randomBase64UUID(random()), nodeConfigurationSource, 0, "follower", mockPlugins,
-            Function.identity());
-        clusterGroup = new ClusterGroup(leaderCluster, followerCluster);
-
         leaderCluster.beforeTest(random(), 0.0D);
         leaderCluster.ensureAtLeastNumDataNodes(numberOfNodesPerCluster());
+        assertBusy(() -> {
+            ClusterService clusterService = leaderCluster.getInstance(ClusterService.class);
+            assertNotNull(clusterService.state().metaData().custom(LicensesMetaData.TYPE));
+        });
+
+        String address = leaderCluster.getDataNodeInstance(TransportService.class).boundAddress().publishAddress().toString();
+        InternalTestCluster followerCluster = new InternalTestCluster(randomLong(), createTempDir(), true, true, numberOfNodesPerCluster(),
+            numberOfNodesPerCluster(), UUIDs.randomBase64UUID(random()), createNodeConfigurationSource(address), 0, "follower",
+            mockPlugins, Function.identity());
+        clusterGroup = new ClusterGroup(leaderCluster, followerCluster);
+
         followerCluster.beforeTest(random(), 0.0D);
         followerCluster.ensureAtLeastNumDataNodes(numberOfNodesPerCluster());
-
-        ClusterUpdateSettingsRequest updateSettingsRequest = new ClusterUpdateSettingsRequest();
-        String address = leaderCluster.getDataNodeInstance(TransportService.class).boundAddress().publishAddress().toString();
-        updateSettingsRequest.persistentSettings(Settings.builder().put("cluster.remote.leader_cluster.seeds", address));
-        assertAcked(followerClient().admin().cluster().updateSettings(updateSettingsRequest).actionGet());
+        assertBusy(() -> {
+            ClusterService clusterService = followerCluster.getInstance(ClusterService.class);
+            assertNotNull(clusterService.state().metaData().custom(LicensesMetaData.TYPE));
+        });
     }
 
     /**
@@ -175,7 +183,7 @@ public abstract class CcrIntegTestCase extends ESTestCase {
         }
     }
 
-    private NodeConfigurationSource createNodeConfigurationSource() {
+    private NodeConfigurationSource createNodeConfigurationSource(String leaderSeedAddress) {
         Settings.Builder builder = Settings.builder();
         builder.put(NodeEnvironment.MAX_LOCAL_STORAGE_NODES_SETTING.getKey(), Integer.MAX_VALUE);
         // Default the watermarks to absurdly low to prevent the tests
@@ -195,6 +203,11 @@ public abstract class CcrIntegTestCase extends ESTestCase {
         builder.put(XPackSettings.MACHINE_LEARNING_ENABLED.getKey(), false);
         builder.put(XPackSettings.LOGSTASH_ENABLED.getKey(), false);
         builder.put(LicenseService.SELF_GENERATED_LICENSE_TYPE.getKey(), "trial");
+        // Let cluster state api return quickly in order to speed up auto follow tests:
+        builder.put(CcrSettings.CCR_WAIT_FOR_METADATA_TIMEOUT.getKey(), TimeValue.timeValueMillis(100));
+        if (configureRemoteClusterViaNodeSettings() && leaderSeedAddress != null) {
+            builder.put("cluster.remote.leader_cluster.seeds", leaderSeedAddress);
+        }
         return new NodeConfigurationSource() {
             @Override
             public Settings nodeSettings(int nodeOrdinal) {
@@ -237,6 +250,10 @@ public abstract class CcrIntegTestCase extends ESTestCase {
         return true;
     }
 
+    protected boolean configureRemoteClusterViaNodeSettings() {
+        return true;
+    }
+
     protected final Client leaderClient() {
         return clusterGroup.leaderCluster.client();
     }
@@ -263,8 +280,13 @@ public abstract class CcrIntegTestCase extends ESTestCase {
     }
 
     protected final ClusterHealthStatus ensureFollowerGreen(String... indices) {
+        return ensureFollowerGreen(false, indices);
+    }
+
+    protected final ClusterHealthStatus ensureFollowerGreen(boolean waitForNoInitializingShards, String... indices) {
         logger.info("ensure green follower indices {}", Arrays.toString(indices));
-        return ensureColor(clusterGroup.followerCluster, ClusterHealthStatus.GREEN, TimeValue.timeValueSeconds(30), false, indices);
+        return ensureColor(clusterGroup.followerCluster, ClusterHealthStatus.GREEN, TimeValue.timeValueSeconds(30),
+            waitForNoInitializingShards, indices);
     }
 
     private ClusterHealthStatus ensureColor(TestCluster testCluster,
@@ -397,10 +419,15 @@ public abstract class CcrIntegTestCase extends ESTestCase {
     }
 
     public static PutFollowAction.Request putFollow(String leaderIndex, String followerIndex) {
+        return putFollow(leaderIndex, followerIndex, ActiveShardCount.ONE);
+    }
+
+    public static PutFollowAction.Request putFollow(String leaderIndex, String followerIndex, ActiveShardCount waitForActiveShards) {
         PutFollowAction.Request request = new PutFollowAction.Request();
         request.setRemoteCluster("leader_cluster");
         request.setLeaderIndex(leaderIndex);
         request.setFollowRequest(resumeFollow(followerIndex));
+        request.waitForActiveShards(waitForActiveShards);
         return request;
     }
 
@@ -417,6 +444,13 @@ public abstract class CcrIntegTestCase extends ESTestCase {
      * on the follower equal the leader's; then verifies the existing pairs of (docId, seqNo) on the follower also equal the leader.
      */
     protected void assertIndexFullyReplicatedToFollower(String leaderIndex, String followerIndex) throws Exception {
+        logger.info("--> asserting <<docId,seqNo>> between {} and {}", leaderIndex, followerIndex);
+        assertBusy(() -> {
+            Map<Integer, List<DocIdSeqNoAndTerm>> docsOnFollower = getDocIdAndSeqNos(clusterGroup.followerCluster, followerIndex);
+            logger.info("--> docs on the follower {}", docsOnFollower);
+            assertThat(docsOnFollower, equalTo(getDocIdAndSeqNos(clusterGroup.leaderCluster, leaderIndex)));
+        }, 120, TimeUnit.SECONDS);
+
         logger.info("--> asserting seq_no_stats between {} and {}", leaderIndex, followerIndex);
         assertBusy(() -> {
             Map<Integer, SeqNoStats> leaderStats = new HashMap<>();
@@ -433,13 +467,8 @@ public abstract class CcrIntegTestCase extends ESTestCase {
                 }
                 followerStats.put(shardStat.getShardRouting().shardId().id(), shardStat.getSeqNoStats());
             }
-            assertThat(leaderStats, equalTo(followerStats));
-        }, 60, TimeUnit.SECONDS);
-        logger.info("--> asserting <<docId,seqNo>> between {} and {}", leaderIndex, followerIndex);
-        assertBusy(() -> {
-            assertThat(getDocIdAndSeqNos(clusterGroup.leaderCluster, leaderIndex),
-                equalTo(getDocIdAndSeqNos(clusterGroup.followerCluster, followerIndex)));
-        }, 60, TimeUnit.SECONDS);
+            assertThat(followerStats, equalTo(leaderStats));
+        }, 120, TimeUnit.SECONDS);
     }
 
     private Map<Integer, List<DocIdSeqNoAndTerm>> getDocIdAndSeqNos(InternalTestCluster cluster, String index) throws IOException {
@@ -460,14 +489,15 @@ public abstract class CcrIntegTestCase extends ESTestCase {
         return docs;
     }
 
-    protected void atLeastDocsIndexed(Client client, String index, long numDocsReplicated) throws InterruptedException {
+    protected void atLeastDocsIndexed(Client client, String index, long numDocsReplicated) throws Exception {
         logger.info("waiting for at least [{}] documents to be indexed into index [{}]", numDocsReplicated, index);
-        awaitBusy(() -> {
+        assertBusy(() -> {
             refresh(client, index);
             SearchRequest request = new SearchRequest(index);
             request.source(new SearchSourceBuilder().size(0));
             SearchResponse response = client.search(request).actionGet();
-            return response.getHits().getTotalHits() >= numDocsReplicated;
+            assertNotNull(response.getHits().getTotalHits());
+            assertThat(response.getHits().getTotalHits().value, greaterThanOrEqualTo(numDocsReplicated));
         }, 60, TimeUnit.SECONDS);
     }
 
@@ -523,35 +553,16 @@ public abstract class CcrIntegTestCase extends ESTestCase {
         });
     }
 
-    protected void assertTotalNumberOfOptimizedIndexing(Index followerIndex, int numberOfShards, long expectedTotal) throws Exception {
-        assertBusy(() -> {
-            long[] numOfOptimizedOps = new long[numberOfShards];
-            for (int shardId = 0; shardId < numberOfShards; shardId++) {
-                for (String node : getFollowerCluster().nodesInclude(followerIndex.getName())) {
-                    IndicesService indicesService = getFollowerCluster().getInstance(IndicesService.class, node);
-                    IndexShard shard = indicesService.getShardOrNull(new ShardId(followerIndex, shardId));
-                    if (shard != null && shard.routingEntry().primary()) {
-                        try {
-                            FollowingEngine engine = ((FollowingEngine) IndexShardTestCase.getEngine(shard));
-                            numOfOptimizedOps[shardId] = engine.getNumberOfOptimizedIndexing();
-                        } catch (AlreadyClosedException e) {
-                            throw new AssertionError(e); // causes assertBusy to retry
-                        }
-                    }
-                }
-            }
-            assertThat(Arrays.stream(numOfOptimizedOps).sum(), equalTo(expectedTotal));
-        });
-    }
-
     static void removeCCRRelatedMetadataFromClusterState(ClusterService clusterService) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         clusterService.submitStateUpdateTask("remove-ccr-related-metadata", new ClusterStateUpdateTask() {
             @Override
             public ClusterState execute(ClusterState currentState) throws Exception {
+                AutoFollowMetadata empty =
+                    new AutoFollowMetadata(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
                 ClusterState.Builder newState = ClusterState.builder(currentState);
                 newState.metaData(MetaData.builder(currentState.getMetaData())
-                    .removeCustom(AutoFollowMetadata.TYPE)
+                    .putCustom(AutoFollowMetadata.TYPE, empty)
                     .removeCustom(PersistentTasksCustomMetaData.TYPE)
                     .build());
                 return newState.build();

@@ -4,28 +4,24 @@ setup:
   - do:
       index:
           index:  index_1
-          type:   test
           id:     1
           body:   { foo: bar }
 
   - do:
       index:
           index:  index_1
-          type:   test
           id:     2
           body:   { foo: baz }
 
   - do:
       index:
           index:  index_1
-          type:   test
           id:     3
           body:   { foo: foo }
 
   - do:
       index:
           index:  index_2
-          type:   test
           id:     1
           body:   { foo: foo }
 
@@ -37,6 +33,7 @@ setup:
 
   - do:
       msearch_template:
+        rest_total_hits_as_int: true
         body:
           - index: index_*
           - source: '{"query": {"match": {"foo": "{{value}}"} } }'
@@ -72,6 +69,7 @@ setup:
 
   - do:
       msearch_template:
+        rest_total_hits_as_int: true
         body:
           # Search 0 is OK
           - index: index_*
@@ -110,6 +108,7 @@ setup:
   - do:
       catch: /(.)*action_request_validation_exception(.)*template.is.missing(.)*/
       msearch_template:
+        rest_total_hits_as_int: true
         body:
           # Search 0 is OK
           - index: index_*
@@ -136,6 +135,7 @@ setup:
 
   - do:
       msearch_template:
+        rest_total_hits_as_int: true
         body:
           - index: index_*
           - id: stored_template_1
@@ -167,8 +167,8 @@ setup:
 ---
 "Test with rest_total_hits_as_int":
   - skip:
-      version: " - 6.5.99"
-      reason: rest_total_hits_as_int was introduced in 6.6.0
+      version: " - 6.99.99"
+      reason: hits.total is returned as an object in 7.0.0
 
   - do:
       put_script:
@@ -178,7 +178,6 @@ setup:
 
   - do:
       msearch_template:
-        rest_total_hits_as_int: true
         body:
         - index: index_*
         - id: stored_template_1
@@ -196,7 +195,9 @@ setup:
             field: "foo"
             value: "foo"
 
-  - match:  { responses.0.hits.total:     2  }
-  - match:  { responses.1.hits.total:     1  }
-  - match:  { responses.2.hits.total:     1  }
-
+  - match:  { responses.0.hits.total.value:     2  }
+  - match:  { responses.0.hits.total.relation:  eq }
+  - match:  { responses.1.hits.total.value:     1  }
+  - match:  { responses.1.hits.total.relation:  eq }
+  - match:  { responses.2.hits.total.value:     1  }
+  - match:  { responses.1.hits.total.relation:  eq }
