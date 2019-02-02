@@ -648,7 +648,7 @@ public final class SearchHit implements Streamable, ToXContentObject, Iterable<D
     private static Map<String, DocumentField> parseFields(XContentParser parser) throws IOException {
         Map<String, DocumentField> fields = new HashMap<>();
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-            DocumentField field = DocumentField.fromXContent(parser);
+            DocumentField field = DocumentField.fromXContent(parser, false);
             fields.put(field.getName(), field);
         }
         return fields;

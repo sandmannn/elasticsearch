@@ -301,8 +301,8 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 } else if (FOUND.equals(currentFieldName)) {
                     found = parser.booleanValue();
                 } else {
-                    boolean isMetadataField = MapperService.isMetadataField(currentFieldName);
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, Collections.singletonList(parser.objectText()), isMetadataField));
+//                    boolean isMetadataField = MapperService.isMetadataField(currentFieldName);
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, Collections.singletonList(parser.objectText()), true));
                 }
             } else if (token == XContentParser.Token.START_OBJECT) {
                 if (SourceFieldMapper.NAME.equals(currentFieldName)) {
@@ -314,7 +314,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                     }
                 } else if (FIELDS.equals(currentFieldName)) {
                     while(parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                        DocumentField getField = DocumentField.fromXContent(parser);
+                        DocumentField getField = DocumentField.fromXContent(parser, false);
                         fields.put(getField.getName(), getField);
                     }
                 } else {
@@ -322,8 +322,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 }
             } else if (token == XContentParser.Token.START_ARRAY) {
                 if (IgnoredFieldMapper.NAME.equals(currentFieldName)) {
-                    boolean isMetadataField = MapperService.isMetadataField(currentFieldName);
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list(), isMetadataField));
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list(), true));
                 } else {
                     parser.skipChildren(); // skip potential inner arrays for forward compatibility
                 }

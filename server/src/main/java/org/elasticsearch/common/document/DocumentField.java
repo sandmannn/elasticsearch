@@ -19,6 +19,9 @@
 
 package org.elasticsearch.common.document;
 
+import com.carrotsearch.hppc.ObjectHashSet;
+
+import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.io.stream.Streamable;
@@ -26,6 +29,7 @@ import org.elasticsearch.common.xcontent.ToXContentFragment;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.index.mapper.IgnoredFieldMapper;
 import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.search.SearchHit;
 
@@ -33,10 +37,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureFieldName;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.parseFieldsValue;
+import static org.elasticsearch.common.xcontent.XContentParserUtils.throwUnknownToken;
 
 /**
  * A single field name and values part of {@link SearchHit} and {@link GetResult}.
@@ -46,6 +53,13 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.parseFieldsV
  */
 public class DocumentField implements Streamable, ToXContentFragment, Iterable<Object> {
 
+    private static String isMetadataFieldKey = "isMetadata";
+    private static String FieldValuesKey = "value";
+//    {"field":{"FieldValues":["value1","value2"],"isMetadataField":true}}
+    private static ObjectHashSet<String> META_FIELDS = ObjectHashSet.from(
+            "_id", "_type", "_routing", "_index",
+            "_size", "_timestamp", "_ttl", IgnoredFieldMapper.NAME
+    );
     private String name;
     private Boolean isMetadataField;
     private List<Object> values;
@@ -123,29 +137,69 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startArray(name);
+        // new serialization
+        builder.startObject(name);
+        builder.startArray(FieldValuesKey);
         for (Object value : values) {
-            // this call doesn't really need to support writing any kind of object.
-            // Stored fields values are converted using MappedFieldType#valueForDisplay.
-            // As a result they can either be Strings, Numbers, or Booleans, that's
-            // all.
-            builder.value(value);
+          // this call doesn't really need to support writing any kind of object.
+          // Stored fields values are converted using MappedFieldType#valueForDisplay.
+          // As a result they can either be Strings, Numbers, or Booleans, that's
+          // all.
+          builder.value(value);          
         }
+        
         builder.endArray();
+        builder.field(isMetadataFieldKey, true);        
+        builder.endObject();
+        
+        
+        
+        
+        // old serialization
+        
+//        builder.startArray(name);
+//        for (Object value : values) {
+//            // this call doesn't really need to support writing any kind of object.
+//            // Stored fields values are converted using MappedFieldType#valueForDisplay.
+//            // As a result they can either be Strings, Numbers, or Booleans, that's
+//            // all.
+//            builder.value(value);
+//        }
+//        builder.endArray();
         return builder;
     }
 
-    public static DocumentField fromXContent(XContentParser parser) throws IOException {
+    public static DocumentField fromXContent(XContentParser parser, boolean insideSource) throws IOException {
+//         when decoding from a string:
+//         we need to check if there is a key refering to existence of a metadata information.
+//        if so, we are decoding it according to new rules.
+//        if not, we are decoding it in old way, but calling the mapper service to determine if it is 
+        // a metadata field
+        
+        
         ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.currentToken(), parser::getTokenLocation);
         String fieldName = parser.currentName();
         XContentParser.Token token = parser.nextToken();
-        ensureExpectedToken(XContentParser.Token.START_ARRAY, token, parser::getTokenLocation);
-        List<Object> values = new ArrayList<>();
-        while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
-            values.add(parseFieldsValue(parser));
+        if (token == XContentParser.Token.START_ARRAY) {
+            // old format
+            List<Object> values = new ArrayList<>();
+            while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
+                values.add(parseFieldsValue(parser));
+            }
+            return new DocumentField(fieldName, values, !insideSource);
+            
+        }   else {
+            String message = "Failed to parse object: unexpected token [%s] found";
+            throw new ParsingException(parser.getTokenLocation(), String.format(Locale.ROOT, message, token));
         }
         
-        return new DocumentField(fieldName, values, false);
+//        ensureExpectedToken(XContentParser.Token.START_ARRAY, token, parser::getTokenLocation);
+//        List<Object> values = new ArrayList<>();
+//        while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
+//            values.add(parseFieldsValue(parser));
+//        }
+//        boolean isMetadataField = MapperService.isMetadataField(fieldName);        
+//        return new DocumentField(fieldName, values, isMetadataField);
     }
 
     @Override
