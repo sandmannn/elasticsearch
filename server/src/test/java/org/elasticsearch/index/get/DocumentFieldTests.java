@@ -49,8 +49,8 @@ public class DocumentFieldTests extends ESTestCase {
     public void testToXContent() {
         DocumentField documentField = new DocumentField("field", Arrays.asList("value1", "value2"), false);
         String output = Strings.toString(documentField);
-//        assertEquals("{\"field\":[\"value1\",\"value2\"]}", output);
-        assertEquals("{\"field\":{\"value\":[\"value1\",\"value2\"],\"isMetadata\":true}}", output);
+        assertEquals("{\"field\":[\"value1\",\"value2\"]}", output);
+//        assertEquals("{\"field\":{\"value\":[\"value1\",\"value2\"],\"isMetadata\":true}}", output);
     }
 
     public void testEqualsAndHashcode() {
@@ -71,7 +71,7 @@ public class DocumentFieldTests extends ESTestCase {
             //we need to move to the next token, the start object one that we manually added is not expected
             assertEquals(XContentParser.Token.START_OBJECT, parser.nextToken());
             assertEquals(XContentParser.Token.FIELD_NAME, parser.nextToken());
-            parsedDocumentField = DocumentField.fromXContent(parser);
+            parsedDocumentField = DocumentField.fromXContent(parser, false);
             assertEquals(XContentParser.Token.END_ARRAY, parser.currentToken());
             assertEquals(XContentParser.Token.END_OBJECT, parser.nextToken());
             assertNull(parser.nextToken());

@@ -301,7 +301,6 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 } else if (FOUND.equals(currentFieldName)) {
                     found = parser.booleanValue();
                 } else {
-//                    boolean isMetadataField = MapperService.isMetadataField(currentFieldName);
                     fields.put(currentFieldName, new DocumentField(currentFieldName, Collections.singletonList(parser.objectText()), true));
                 }
             } else if (token == XContentParser.Token.START_OBJECT) {
@@ -322,7 +321,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 }
             } else if (token == XContentParser.Token.START_ARRAY) {
                 if (IgnoredFieldMapper.NAME.equals(currentFieldName)) {
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list(), true));
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, parser.list(), false));
                 } else {
                     parser.skipChildren(); // skip potential inner arrays for forward compatibility
                 }
