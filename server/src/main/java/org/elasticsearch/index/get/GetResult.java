@@ -301,7 +301,9 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 } else if (FOUND.equals(currentFieldName)) {
                     found = parser.booleanValue();
                 } else {
-                    fields.put(currentFieldName, new DocumentField(currentFieldName, Collections.singletonList(parser.objectText()), true));
+                    // This fields is in metadata area of the xContent, thus should be treated as metadata
+                    fields.put(currentFieldName, new DocumentField(currentFieldName, 
+                            Collections.singletonList(parser.objectText()), true));
                 }
             } else if (token == XContentParser.Token.START_OBJECT) {
                 if (SourceFieldMapper.NAME.equals(currentFieldName)) {
