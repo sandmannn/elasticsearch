@@ -19,6 +19,7 @@
 
 package org.elasticsearch.common.document;
 
+import org.elasticsearch.Version;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.io.stream.Streamable;
@@ -26,6 +27,7 @@ import org.elasticsearch.common.xcontent.ToXContentFragment;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
@@ -50,6 +52,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
     private List<Object> values;
 
     private DocumentField() {
+        this.isMetadataField = false;
     }
 
     public DocumentField(String name, List<Object> values, boolean isMetadataField) {
@@ -108,6 +111,11 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         for (int i = 0; i < size; i++) {
             values.add(in.readGenericValue());
         }
+        if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
+            isMetadataField = in.readBoolean();
+        } else {
+            isMetadataField = MapperService.isMetadataField(name);
+        }
     }
 
     @Override
@@ -117,6 +125,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         for (Object obj : values) {
             out.writeGenericValue(obj);
         }
+        out.writeBoolean(this.isMetadataField);        
     }
 
     @Override
@@ -133,7 +142,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         return builder;
     }
 
-    public static DocumentField fromXContent(XContentParser parser, boolean inMetadataArea) throws IOException {
+    public static DocumentField fromXContent(XContentParser parser, boolean isMetadataField) throws IOException {
         ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.currentToken(), parser::getTokenLocation);
         String fieldName = parser.currentName();
         XContentParser.Token token = parser.nextToken();
@@ -142,7 +151,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
             values.add(parseFieldsValue(parser));
         }
-        return new DocumentField(fieldName, values, inMetadataArea);
+        return new DocumentField(fieldName, values, isMetadataField);
     }
 
     @Override
@@ -159,7 +168,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, values);
+        return Objects.hash(name, values, isMetadataField);
     }
 
     @Override

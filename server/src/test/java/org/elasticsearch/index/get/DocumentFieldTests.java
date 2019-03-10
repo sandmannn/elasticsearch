@@ -50,7 +50,6 @@ public class DocumentFieldTests extends ESTestCase {
         DocumentField documentField = new DocumentField("field", Arrays.asList("value1", "value2"), false);
         String output = Strings.toString(documentField);
         assertEquals("{\"field\":[\"value1\",\"value2\"]}", output);
-//        assertEquals("{\"field\":{\"value\":[\"value1\",\"value2\"],\"isMetadata\":true}}", output);
     }
 
     public void testEqualsAndHashcode() {
