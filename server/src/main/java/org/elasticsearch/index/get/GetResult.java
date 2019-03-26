@@ -69,6 +69,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
     private long primaryTerm;
     private boolean exists;
     private Map<String, DocumentField> fields;
+    private Map<String, DocumentField> metaDataFields;
     private Map<String, Object> sourceAsMap;
     private BytesReference source;
     private byte[] sourceAsBytes;
@@ -77,7 +78,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
     }
 
     public GetResult(String index, String type, String id, long seqNo, long primaryTerm, long version, boolean exists,
-                     BytesReference source, Map<String, DocumentField> fields) {
+                     BytesReference source, Map<String, DocumentField> fields, Map<String, DocumentField> metaDataFields) {
         this.index = index;
         this.type = type;
         this.id = id;
@@ -93,6 +94,10 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
         this.fields = fields;
         if (this.fields == null) {
             this.fields = emptyMap();
+        }
+        this.metaDataFields = metaDataFields;
+        if (this.metaDataFields == null) {
+            this.metaDataFields = emptyMap();
         }
     }
 
@@ -366,7 +371,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 }
             }
         }
-        return new GetResult(index, type, id, seqNo, primaryTerm, version, found, source, fields);
+        return new GetResult(index, type, id, seqNo, primaryTerm, version, found, source, fields, null);
     }
 
     public static GetResult fromXContent(XContentParser parser) throws IOException {
