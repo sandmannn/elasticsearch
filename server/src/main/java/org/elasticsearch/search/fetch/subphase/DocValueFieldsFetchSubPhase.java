@@ -149,7 +149,7 @@ public final class DocValueFieldsFetchSubPhase implements FetchSubPhase {
                     DocumentField hitField = hit.getFields().get(field);
                     if (hitField == null) {
                         boolean isMetadataField = MapperService.isMetadataField(field);
-                        hitField = new DocumentField(field, new ArrayList<>(2), isMetadataField);
+                        hitField = new DocumentField(field, new ArrayList<>(2));
                         hit.getFields().put(field, hitField);
                     }
                     final List<Object> values = hitField.getValues();

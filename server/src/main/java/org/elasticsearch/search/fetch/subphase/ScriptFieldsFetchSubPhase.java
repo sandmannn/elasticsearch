@@ -86,7 +86,7 @@ public final class ScriptFieldsFetchSubPhase implements FetchSubPhase {
                         values = Collections.singletonList(value);
                     }
                     boolean isMetadataField = MapperService.isMetadataField(scriptFieldName);
-                    hitField = new DocumentField(scriptFieldName, values, isMetadataField);
+                    hitField = new DocumentField(scriptFieldName, values);
                     hit.getFields().put(scriptFieldName, hitField);
                 }
             }

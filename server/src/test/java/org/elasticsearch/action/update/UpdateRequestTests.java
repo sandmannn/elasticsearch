@@ -562,7 +562,7 @@ public class UpdateRequestTests extends ESTestCase {
         assertNull(UpdateHelper.calculateRouting(getResult, indexRequest));
 
         Map<String, DocumentField> fields = new HashMap<>();
-        fields.put("_routing", new DocumentField("_routing", Collections.singletonList("routing1"), false));
+        fields.put("_routing", new DocumentField("_routing", Collections.singletonList("routing1")));
 
         // Doc exists and has the parent and routing fields
         getResult = new GetResult("test", "type", "1", 0, 1, 0, true, null, fields);

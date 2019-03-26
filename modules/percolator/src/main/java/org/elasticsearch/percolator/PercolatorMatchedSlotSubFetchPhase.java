@@ -111,8 +111,7 @@ final class PercolatorMatchedSlotSubFetchPhase implements FetchSubPhase {
                     hit.fields(fields);
                 }
                 IntStream slots = convertTopDocsToSlots(topDocs, rootDocsBySlot);
-                boolean isMetadataField = MapperService.isMetadataField(fieldName);
-                fields.put(fieldName, new DocumentField(fieldName, slots.boxed().collect(Collectors.toList()), isMetadataField));
+                fields.put(fieldName, new DocumentField(fieldName, slots.boxed().collect(Collectors.toList())));
             }
         }
     }

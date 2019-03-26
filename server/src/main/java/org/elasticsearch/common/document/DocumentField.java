@@ -48,17 +48,14 @@ import static org.elasticsearch.common.xcontent.XContentParserUtils.parseFieldsV
 public class DocumentField implements Streamable, ToXContentFragment, Iterable<Object> {
 
     private String name;
-    private Boolean isMetadataField;
     private List<Object> values;
 
     private DocumentField() {
-        this.isMetadataField = false;
     }
 
-    public DocumentField(String name, List<Object> values, boolean isMetadataField) {
+    public DocumentField(String name, List<Object> values) {
         this.name = Objects.requireNonNull(name, "name must not be null");
         this.values = Objects.requireNonNull(values, "values must not be null");
-        this.isMetadataField = isMetadataField;
     }
 
     /**
@@ -85,13 +82,6 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         return values;
     }
 
-    /**
-     * @return The field is a metadata field
-     */
-    public boolean isMetadataField() {
-        return this.isMetadataField;
-    }
-
     @Override
     public Iterator<Object> iterator() {
         return values.iterator();
@@ -111,11 +101,11 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         for (int i = 0; i < size; i++) {
             values.add(in.readGenericValue());
         }
-        if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
-            isMetadataField = in.readBoolean();
-        } else {
-            isMetadataField = MapperService.isMetadataField(name);
-        }
+//        if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
+//            isMetadataField = in.readBoolean();
+//        } else {
+//            isMetadataField = MapperService.isMetadataField(name);
+//        }
     }
 
     @Override
@@ -125,7 +115,6 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         for (Object obj : values) {
             out.writeGenericValue(obj);
         }
-        out.writeBoolean(this.isMetadataField);        
     }
 
     @Override
@@ -144,7 +133,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         return builder;
     }
 
-    public static DocumentField fromXContent(XContentParser parser, boolean isMetadataField) throws IOException {
+    public static DocumentField fromXContent(XContentParser parser) throws IOException {
         // Parameter isMetadataField provides information about the location of the field in the document, 
         // e.g. if it is in the metadata part of the doucment.
         ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.currentToken(), parser::getTokenLocation);
@@ -155,7 +144,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         while ((token = parser.nextToken()) != XContentParser.Token.END_ARRAY) {
             values.add(parseFieldsValue(parser));
         }
-        return new DocumentField(fieldName, values, isMetadataField);
+        return new DocumentField(fieldName, values);
     }
 
     @Override
