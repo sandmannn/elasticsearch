@@ -7,7 +7,6 @@ package org.elasticsearch.xpack.ml.test;
 
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.document.DocumentField;
-import org.elasticsearch.index.mapper.MapperService;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.Arrays;

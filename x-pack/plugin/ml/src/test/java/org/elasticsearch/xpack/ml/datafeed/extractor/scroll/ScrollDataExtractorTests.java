@@ -482,8 +482,8 @@ public class ScrollDataExtractorTests extends ESTestCase {
             SearchHit hit = new SearchHit(randomInt());
             Map<String, DocumentField> fields = new HashMap<>();
             fields.put(extractedFields.timeField(), new DocumentField("time", Collections.singletonList(timestamps.get(i))));
-            fields.put("field_1", new DocumentField("field_1", Collections.singletonList(field1Values.get(i)), false));
-            fields.put("field_2", new DocumentField("field_2", Collections.singletonList(field2Values.get(i)), false));
+            fields.put("field_1", new DocumentField("field_1", Collections.singletonList(field1Values.get(i))));
+            fields.put("field_2", new DocumentField("field_2", Collections.singletonList(field2Values.get(i))));
             hit.fields(fields);
             hits.add(hit);
         }
