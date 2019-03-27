@@ -236,8 +236,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
     }
 
     public DocumentField field(String name) {
-        // need to join the fields and metadata fields
-        return otherFields.get(name);
+        return getFields().get(name);
     }
 
     @Override
@@ -254,21 +253,6 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
             builder.field(_SEQ_NO, seqNo);
             builder.field(_PRIMARY_TERM, primaryTerm);
         }
-
-//        List<DocumentField> metaFieldsList = new ArrayList<>(metaFields);
-//        List<DocumentField> otherFieldssList = new ArrayList<>();
-//        if (fields != null && !fields.isEmpty()) {
-//            for (DocumentField field : fields.values()) {
-//                if (field.getValues().isEmpty()) {
-//                    continue;
-//                }
-//                if (field.isMetadataField()) {
-//                    metaFields.add(field);
-//                } else {
-//                    otherFields.add(field);
-//                }
-//            }
-//        }
 
         for (DocumentField field : metaFields.values()) {
             // TODO: can we avoid having an exception here?
@@ -350,7 +334,6 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 } else if (FOUND.equals(currentFieldName)) {
                     found = parser.booleanValue();
                 } else {
-                    // This fields is in metadata area of the xContent, thus should be treated as metadata
                     metaFields.put(currentFieldName, new DocumentField(currentFieldName, 
                             Collections.singletonList(parser.objectText())));
                 }
@@ -378,6 +361,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 }
             }
         }
+        // TODO: need to fill metadata
         return new GetResult(index, type, id, seqNo, primaryTerm, version, found, source, otherFields, null);
     }
 
@@ -394,6 +378,34 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
         return result;
     }
 
+    private Map<String, DocumentField> readFields(StreamInput in) throws IOException {
+        Map<String, DocumentField> fields = null;
+        int size = in.readVInt();
+        if (size == 0) {
+            fields = emptyMap();
+        } else {
+            fields = new HashMap<>(size);
+            for (int i = 0; i < size; i++) {
+                DocumentField field = DocumentField.readDocumentField(in);
+                fields.put(field.getName(), field);
+            }
+        }
+        return fields;
+    }
+    
+    private void splitFieldsByMetadata(Map<String, DocumentField> fields, Map<String, DocumentField> outOther,
+                                       Map<String, DocumentField> outMetadata) {
+        for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
+            if (fieldEntry.getValue().isMetadataField()) {
+                outMetadata.put(fieldEntry.getKey(), fieldEntry.getValue());
+            } else {
+                outOther.put(fieldEntry.getKey(), fieldEntry.getValue());                
+            }
+        }
+        
+        
+    }
+    
     @Override
     public void readFrom(StreamInput in) throws IOException {
         index = in.readString();
@@ -413,29 +425,15 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
             if (source.length() == 0) {
                 source = null;
             }
-
-            int size = in.readVInt();
-            if (size == 0) {
+            if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
+                otherFields = readFields(in);
+                metaFields = readFields(in);            
+            } else {
+                Map<String, DocumentField> fields = readFields(in);
                 otherFields = emptyMap();
-            } else {
-                otherFields = new HashMap<>(size);
-                for (int i = 0; i < size; i++) {
-                    DocumentField field = DocumentField.readDocumentField(in);
-                    otherFields.put(field.getName(), field);
-                }
-            }
-
-            size = in.readVInt();
-            if (size == 0) {
                 metaFields = emptyMap();
-            } else {
-                metaFields = new HashMap<>(size);
-                for (int i = 0; i < size; i++) {
-                    DocumentField field = DocumentField.readDocumentField(in);
-                    metaFields.put(field.getName(), field);
-                }
+                splitFieldsByMetadata(fields, otherFields, metaFields);
             }
-            
         }
     }
 
@@ -452,21 +450,22 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
         out.writeBoolean(exists);
         if (exists) {
             out.writeBytesReference(source);
-            if (otherFields == null) {
-                out.writeVInt(0);
+            if (out.getVersion().onOrAfter(Version.V_7_0_0)) {                
+                writeFields(out, otherFields);
+                writeFields(out, metaFields);
             } else {
-                out.writeVInt(otherFields.size());
-                for (DocumentField field : otherFields.values()) {
-                    field.writeTo(out);
-                }
+                writeFields(out, this.getFields());                
             }
-            if (metaFields == null) {
-                out.writeVInt(0);
-            } else {
-                out.writeVInt(metaFields.size());
-                for (DocumentField field : metaFields.values()) {
-                    field.writeTo(out);
-                }
+        }
+    }
+    
+    private void writeFields(StreamOutput out,  Map<String, DocumentField> fields) throws IOException {
+        if (fields == null) {
+            out.writeVInt(0);
+        } else {
+            out.writeVInt(fields.size());
+            for (DocumentField field : fields.values()) {
+                field.writeTo(out);
             }
         }
     }

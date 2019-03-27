@@ -107,11 +107,6 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         for (int i = 0; i < size; i++) {
             values.add(in.readGenericValue());
         }
-//        if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
-//            isMetadataField = in.readBoolean();
-//        } else {
-//            isMetadataField = MapperService.isMetadataField(name);
-//        }
     }
 
     @Override
