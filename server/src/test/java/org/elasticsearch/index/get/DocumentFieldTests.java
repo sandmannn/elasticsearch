@@ -70,7 +70,7 @@ public class DocumentFieldTests extends ESTestCase {
             //we need to move to the next token, the start object one that we manually added is not expected
             assertEquals(XContentParser.Token.START_OBJECT, parser.nextToken());
             assertEquals(XContentParser.Token.FIELD_NAME, parser.nextToken());
-            parsedDocumentField = DocumentField.fromXContent(parser, false);
+            parsedDocumentField = DocumentField.fromXContent(parser);
             assertEquals(XContentParser.Token.END_ARRAY, parser.currentToken());
             assertEquals(XContentParser.Token.END_OBJECT, parser.nextToken());
             assertNull(parser.nextToken());

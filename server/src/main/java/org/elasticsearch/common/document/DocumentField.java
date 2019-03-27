@@ -82,6 +82,13 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         return values;
     }
 
+    /** 
+     * @return The field is a metadata field    
+     */ 
+    public boolean isMetadataField() {  
+        return MapperService.isMetadataField(name); 
+    }
+
     @Override
     public Iterator<Object> iterator() {
         return values.iterator();
@@ -119,8 +126,6 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        // The member variable isMetadataField is not serialized, because its value depends
-        // on the context (where in the document this field is located).
         builder.startArray(name);
         for (Object value : values) {
             // this call doesn't really need to support writing any kind of object.
@@ -134,8 +139,6 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
     }
 
     public static DocumentField fromXContent(XContentParser parser) throws IOException {
-        // Parameter isMetadataField provides information about the location of the field in the document, 
-        // e.g. if it is in the metadata part of the doucment.
         ensureExpectedToken(XContentParser.Token.FIELD_NAME, parser.currentToken(), parser::getTokenLocation);
         String fieldName = parser.currentName();
         XContentParser.Token token = parser.nextToken();
@@ -148,11 +151,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
     }
 
     @Override
-    public boolean equals(Object o) {
-        // Member field isMetadataField does not participate in equals, since
-        // it contains information about position of the DocumentField in the document and 
-        // not about DocumentField itself
-        
+    public boolean equals(Object o) {        
         if (this == o) {
             return true;
         }
@@ -165,10 +164,6 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
 
     @Override
     public int hashCode() {
-        // Member field isMetadataField does not participate in hashCode, since
-        // it contains information about position of the DocumentField in the document and 
-        // not about DocumentField itself
-
         return Objects.hash(name, values);
     }
 

@@ -160,7 +160,7 @@ public class ExpandSearchPhaseTests extends ESTestCase {
         SearchHits hits = new SearchHits(new SearchHit[]{new SearchHit(1, "ID", new Text("type"),
             Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue)))),
             new SearchHit(2, "ID2", new Text("type"),
-                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue), false)))},
+                Collections.singletonMap("someField", new DocumentField("someField", Collections.singletonList(collapseValue))))},
             new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0F);
         InternalSearchResponse internalSearchResponse = new InternalSearchResponse(hits, null, null, null, false, null, 1);
         AtomicReference<SearchResponse> reference = new AtomicReference<>();
