@@ -19,7 +19,6 @@
 
 package org.elasticsearch.common.document;
 
-import org.elasticsearch.Version;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.io.stream.Streamable;
@@ -82,11 +81,11 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
         return values;
     }
 
-    /** 
-     * @return The field is a metadata field    
-     */ 
-    public boolean isMetadataField() {  
-        return MapperService.isMetadataField(name); 
+    /**
+     * @return The field is a metadata field
+     */
+    public boolean isMetadataField() {
+        return MapperService.isMetadataField(name);
     }
 
     @Override
@@ -151,7 +150,7 @@ public class DocumentField implements Streamable, ToXContentFragment, Iterable<O
     }
 
     @Override
-    public boolean equals(Object o) {        
+    public boolean equals(Object o) {
         if (this == o) {
             return true;
         }

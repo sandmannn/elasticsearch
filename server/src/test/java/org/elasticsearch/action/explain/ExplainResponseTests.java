@@ -68,7 +68,7 @@ public class ExplainResponseTests extends AbstractStreamableXContentTestCase<Exp
             0, 1, randomNonNegativeLong(),
             true,
             RandomObjects.randomSource(random()),
-            singletonMap(fieldName, new DocumentField(fieldName, values, false)));
+            singletonMap(fieldName, new DocumentField(fieldName, values), null));
         return new ExplainResponse(index, type, id, exist, explanation, getResult);
     }
 
