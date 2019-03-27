@@ -230,9 +230,11 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
     }
 
     public Map<String, DocumentField> getFields() {
-        // need to join the fields and metadata fields
-        
-        return otherFields;
+        Map<String, DocumentField> fields = emptyMap();
+        fields.putAll(metaFields);
+        fields.putAll(otherFields);
+        // TODO: question to reviewers - do you think it makes sense to cache this merged `fields` map?
+        return fields;
     }
 
     public DocumentField field(String name) {
@@ -361,8 +363,7 @@ public class GetResult implements Streamable, Iterable<DocumentField>, ToXConten
                 }
             }
         }
-        // TODO: need to fill metadata
-        return new GetResult(index, type, id, seqNo, primaryTerm, version, found, source, otherFields, null);
+        return new GetResult(index, type, id, seqNo, primaryTerm, version, found, source, otherFields, metaFields);
     }
 
     public static GetResult fromXContent(XContentParser parser) throws IOException {
