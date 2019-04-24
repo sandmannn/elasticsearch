@@ -340,7 +340,21 @@ public class FetchPhase implements SearchPhase {
             XContentType contentType = tuple.v1();
             context.lookup().source().setSourceContentType(contentType);
         }
+
+        Map<String, DocumentField> searchDocumentFields = new HashMap<String, DocumentField>(),
+            searchMetaFields = new HashMap<String, DocumentField>();
+
+
+        for (Map.Entry<String, DocumentField> fieldEntry: searchFields.entrySet()) {
+            if (fieldEntry.getValue().isMetadataField()) {
+                searchMetaFields.put(fieldEntry.getKey(), fieldEntry.getValue());
+            } else {
+                searchDocumentFields.put(fieldEntry.getKey(), fieldEntry.getValue());                
+            }
+        }
+
         return new SearchHit(nestedTopDocId, uid.id(), documentMapper.typeText(), nestedIdentity, searchFields);
+        // return new SearchHit(nestedTopDocId, uid.id(), documentMapper.typeText(), nestedIdentity, searchMetaFields, searchDocumentFields);
     }
 
     private SearchHit.NestedIdentity getInternalNestedIdentity(SearchContext context, int nestedSubDocId,
