@@ -519,9 +519,18 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
     }
 
     public void fields(Map<String, DocumentField> fields) {
-        // TODO: this is a problem, we need to provide this inserter to support separation of metadata
-        
-//        this.fields = fields;
+        this.metaFields.clear();
+        this.documentFields.clear();
+        if (fields == null) {            
+            return;
+        }
+        for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
+            if (fieldEntry.getValue().isMetadataField()) {
+                this.metaFields.put(fieldEntry.getKey(), fieldEntry.getValue());
+            } else {
+                this.documentFields.put(fieldEntry.getKey(), fieldEntry.getValue());                
+            }
+        }
     }
 
     /**
@@ -652,20 +661,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     // public because we render hit as part of completion suggestion option
     public XContentBuilder toInnerXContent(XContentBuilder builder, Params params) throws IOException {
-//        List<DocumentField> metaFields = new ArrayList<>();
-//        List<DocumentField> otherFields = new ArrayList<>();
-//        if (fields != null && !fields.isEmpty()) {
-//            for (DocumentField field : fields.values()) {
-//                if (field.getValues().isEmpty()) {
-//                    continue;
-//                }
-//                if (field.isMetadataField()) {
-//                    metaFields.add(field);
-//                } else {
-//                    otherFields.add(field);
-//                }
-//            }
-//        }
 
         // For inner_hit hits shard is null and that is ok, because the parent search hit has all this information.
         // Even if this was included in the inner_hit hits this would be the same, so better leave it out.
@@ -818,7 +813,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         String id = get(Fields._ID, values, null);
         Text type = get(Fields._TYPE, values, null);
         NestedIdentity nestedIdentity = get(NestedIdentity._NESTED, values, null);
-        // TODO: we need to inspect what is created in ths map and possibpy 
         Map<String, DocumentField> metaFields = get(Fields.METADATA_FIELDS, values, Collections.emptyMap());
         Map<String, DocumentField> documentFields = get(Fields.DOCUMENT_FIELDS, values, Collections.emptyMap());
 
