@@ -143,12 +143,12 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
         this.documentFields = documentFields;        
         if (this.documentFields == null) {
-            this.documentFields = emptyMap();
+            this.documentFields = new HashMap<>();
         }
 
         this.metaFields = metaFields;        
         if (this.metaFields == null) {
-            this.metaFields = emptyMap();
+            this.metaFields = new HashMap<>();
         }
     }
 
@@ -176,28 +176,14 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             metaFields = readFields(in);            
         } else {
             Map<String, DocumentField> fields = readFields(in);
-            documentFields = emptyMap();
-            metaFields = emptyMap();
+            documentFields = new HashMap<>();
+            metaFields = new HashMap<>();
             splitFieldsByMetadata(fields, documentFields, metaFields);
         }
 
         
         int size = in.readVInt();
-//        if (size == 0) {
-//            fields = emptyMap();
-//        } else if (size == 1) {
-//            DocumentField hitField = DocumentField.readDocumentField(in);
-//            fields = singletonMap(hitField.getName(), hitField);
-//        } else {
-//            Map<String, DocumentField> fields = new HashMap<>();
-//            for (int i = 0; i < size; i++) {
-//                DocumentField hitField = DocumentField.readDocumentField(in);
-//                fields.put(hitField.getName(), hitField);
-//            }
-//            this.fields = unmodifiableMap(fields);
-//        }
 
-        size = in.readVInt();
         if (size == 0) {
             highlightFields = emptyMap();
         } else if (size == 1) {
@@ -507,10 +493,10 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
      * were required to be loaded.
      */
     public Map<String, DocumentField> getFields() {
-        Map<String, DocumentField> fields = emptyMap();
+        Map<String, DocumentField> fields = new HashMap<>();
         fields.putAll(metaFields);
         fields.putAll(documentFields);
-        return fields == null ? emptyMap() : fields;
+        return fields;
     }
 
     // returns the fields without handling null cases
