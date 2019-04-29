@@ -22,6 +22,7 @@ package org.elasticsearch.search;
 import org.apache.lucene.search.Explanation;
 import org.elasticsearch.ElasticsearchParseException;
 import org.elasticsearch.action.OriginalIndices;
+import org.elasticsearch.Version;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.ParsingException;
@@ -167,7 +168,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (in.readBoolean()) {
             explanation = readExplanation(in);
         }
-        if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
+        if (in.getVersion().onOrAfter(Version.V_8_0_0)) {
             documentFields = readFields(in);
             metaFields = readFields(in);            
         } else {
@@ -234,7 +235,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             writeExplanation(out, explanation);
         }
 
-        if (out.getVersion().onOrAfter(Version.V_7_0_0)) {                
+        if (out.getVersion().onOrAfter(Version.V_8_0_0)) {
             writeFields(out, documentFields);
             writeFields(out, metaFields);
         } else {
