@@ -208,13 +208,17 @@ public class FetchPhase implements SearchPhase {
         DocumentMapper documentMapper = context.mapperService().documentMapper();
         Text typeText = documentMapper.typeText();
         if (fieldsVisitor == null) {
-            return new SearchHit(docId, null, typeText, null);
+            return new SearchHit(docId, null, typeText, null, null);
         }
 
         Map<String, DocumentField> searchFields = getSearchFields(context, fieldsVisitor, subDocId,
             storedToRequestedFields, subReaderContext);
+        
+        Map<String, DocumentField> metaFields = new HashMap<>(), 
+                documentFields = new HashMap<>();
+        splitSearchHitFields(searchFields, documentFields, metaFields);
 
-        SearchHit searchHit = new SearchHit(docId, fieldsVisitor.uid().id(), typeText, searchFields);
+        SearchHit searchHit = new SearchHit(docId, fieldsVisitor.uid().id(), typeText, documentFields, metaFields);
         // Set _source if requested.
         SourceLookup sourceLookup = context.lookup().source();
         sourceLookup.setSegmentAndDocument(subReaderContext, subDocId);
@@ -224,6 +228,21 @@ public class FetchPhase implements SearchPhase {
         return searchHit;
     }
 
+    private void splitSearchHitFields(Map<String, DocumentField> fields, Map<String, DocumentField> documentFields, Map<String, DocumentField> metaFields) {
+        // metaFields and documentFields must be non-empty maps
+        if (fields == null) {
+            return;
+        }
+        for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
+            if (fieldEntry.getValue().isMetadataField()) {
+                metaFields.put(fieldEntry.getKey(), fieldEntry.getValue());
+            } else {
+                documentFields.put(fieldEntry.getKey(), fieldEntry.getValue());                
+            }
+        }
+
+    }
+    
     private Map<String, DocumentField> getSearchFields(SearchContext context,
                                                        FieldsVisitor fieldsVisitor,
                                                        int subDocId,
@@ -340,7 +359,17 @@ public class FetchPhase implements SearchPhase {
             XContentType contentType = tuple.v1();
             context.lookup().source().setSourceContentType(contentType);
         }
-        return new SearchHit(nestedTopDocId, uid.id(), documentMapper.typeText(), nestedIdentity, searchFields);
+
+        
+        Map<String, DocumentField> metaFields = new HashMap<>(), 
+                documentFields = new HashMap<>();
+        splitSearchHitFields(searchFields, documentFields, metaFields);
+
+
+        return new SearchHit(nestedTopDocId, uid.id(), documentMapper.typeText(), nestedIdentity, documentFields, metaFields);
+
+
+        // return new SearchHit(nestedTopDocId, uid.id(), documentMapper.typeText(), nestedIdentity, searchMetaFields, searchDocumentFields);
     }
 
     private SearchHit.NestedIdentity getInternalNestedIdentity(SearchContext context, int nestedSubDocId,

@@ -96,7 +96,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     private BytesReference source;
 
-    private Map<String, DocumentField> fields;
+    private Map<String, DocumentField> documentFields;
+    private Map<String, DocumentField> metaFields;
 
     private Map<String, HighlightField> highlightFields = null;
 
@@ -121,14 +122,15 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     //used only in tests
     public SearchHit(int docId) {
-        this(docId, null, null, null);
+        this(docId, null, null, null, null);
     }
 
-    public SearchHit(int docId, String id, Text type, Map<String, DocumentField> fields) {
-        this(docId, id, type, null, fields);
+    public SearchHit(int docId, String id, Text type, Map<String, DocumentField> documentFields, Map<String, DocumentField> metaFields) {
+        this(docId, id, type, null, documentFields, metaFields);
     }
 
-    public SearchHit(int nestedTopDocId, String id, Text type, NestedIdentity nestedIdentity, Map<String, DocumentField> fields) {
+    public SearchHit(int nestedTopDocId, String id, Text type, NestedIdentity nestedIdentity, Map<String, DocumentField> documentFields,
+            Map<String, DocumentField> metaFields) {
         this.docId = nestedTopDocId;
         if (id != null) {
             this.id = new Text(id);
@@ -137,7 +139,16 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         }
         this.type = type;
         this.nestedIdentity = nestedIdentity;
-        this.fields = fields;
+
+        this.documentFields = documentFields;        
+        if (this.documentFields == null) {
+            this.documentFields = new HashMap<>();
+        }
+
+        this.metaFields = metaFields;        
+        if (this.metaFields == null) {
+            this.metaFields = new HashMap<>();
+        }
     }
 
     public SearchHit(StreamInput in) throws IOException {
@@ -156,22 +167,18 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (in.readBoolean()) {
             explanation = readExplanation(in);
         }
-        int size = in.readVInt();
-        if (size == 0) {
-            fields = emptyMap();
-        } else if (size == 1) {
-            DocumentField hitField = DocumentField.readDocumentField(in);
-            fields = singletonMap(hitField.getName(), hitField);
+        if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
+            documentFields = readFields(in);
+            metaFields = readFields(in);            
         } else {
-            Map<String, DocumentField> fields = new HashMap<>();
-            for (int i = 0; i < size; i++) {
-                DocumentField hitField = DocumentField.readDocumentField(in);
-                fields.put(hitField.getName(), hitField);
-            }
-            this.fields = unmodifiableMap(fields);
+            Map<String, DocumentField> fields = readFields(in);
+            documentFields = new HashMap<>();
+            metaFields = new HashMap<>();
+            splitFieldsByMetadata(fields, documentFields, metaFields);
         }
 
-        size = in.readVInt();
+
+        int size = in.readVInt();
         if (size == 0) {
             highlightFields = emptyMap();
         } else if (size == 1) {
@@ -226,13 +233,12 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             out.writeBoolean(true);
             writeExplanation(out, explanation);
         }
-        if (fields == null) {
-            out.writeVInt(0);
+
+        if (out.getVersion().onOrAfter(Version.V_7_0_0)) {                
+            writeFields(out, documentFields);
+            writeFields(out, metaFields);
         } else {
-            out.writeVInt(fields.size());
-            for (DocumentField hitField : getFields().values()) {
-                hitField.writeTo(out);
-            }
+            writeFields(out, this.getFields());                
         }
         if (highlightFields == null) {
             out.writeVInt(0);
@@ -263,6 +269,44 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             }
         }
     }
+
+    private Map<String, DocumentField> readFields(StreamInput in) throws IOException {
+        Map<String, DocumentField> fields = null;
+        int size = in.readVInt();
+        if (size == 0) {
+            fields = emptyMap();
+        } else {
+            fields = new HashMap<>(size);
+            for (int i = 0; i < size; i++) {
+                DocumentField field = DocumentField.readDocumentField(in);
+                fields.put(field.getName(), field);
+            }
+        }
+        return fields;
+    }
+
+    private void writeFields(StreamOutput out,  Map<String, DocumentField> fields) throws IOException {
+        if (fields == null) {
+            out.writeVInt(0);
+        } else {
+            out.writeVInt(fields.size());
+            for (DocumentField field : fields.values()) {
+                field.writeTo(out);
+            }
+        }
+    }
+
+    private void splitFieldsByMetadata(Map<String, DocumentField> fields, Map<String, DocumentField> outOther,
+                                       Map<String, DocumentField> outMetadata) {
+        for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
+            if (fieldEntry.getValue().isMetadataField()) {
+                outMetadata.put(fieldEntry.getKey(), fieldEntry.getValue());
+            } else {
+                outOther.put(fieldEntry.getKey(), fieldEntry.getValue());                
+            }
+        }
+    }
+    
 
     public int docId() {
         return this.docId;
@@ -411,7 +455,12 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     @Override
     public Iterator<DocumentField> iterator() {
-        return fields.values().iterator();
+        // need to join the fields and metadata fields
+        Map<String, DocumentField> allFields = this.getFields();
+        if (allFields == null) {
+            return Collections.emptyIterator();
+        }
+        return allFields.values().iterator();
     }
 
     /**
@@ -426,16 +475,30 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
      * were required to be loaded.
      */
     public Map<String, DocumentField> getFields() {
-        return fields == null ? emptyMap() : fields;
+        Map<String, DocumentField> fields = new HashMap<>();
+        fields.putAll(metaFields);
+        fields.putAll(documentFields);
+        return fields;
     }
 
     // returns the fields without handling null cases
     public Map<String, DocumentField> fieldsOrNull() {
-        return fields;
+        return getFields();
     }
 
     public void fields(Map<String, DocumentField> fields) {
-        this.fields = fields;
+        this.metaFields.clear();
+        this.documentFields.clear();
+        if (fields == null) {            
+            return;
+        }
+        for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
+            if (fieldEntry.getValue().isMetadataField()) {
+                this.metaFields.put(fieldEntry.getKey(), fieldEntry.getValue());
+            } else {
+                this.documentFields.put(fieldEntry.getKey(), fieldEntry.getValue());                
+            }
+        }
     }
 
     /**
@@ -542,7 +605,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         static final String _SEQ_NO = "_seq_no";
         static final String _PRIMARY_TERM = "_primary_term";
         static final String _SCORE = "_score";
-        static final String FIELDS = "fields";
+        static final String DOCUMENT_FIELDS = "document_fields";
+        static final String METADATA_FIELDS = "metadata_fields";
         static final String HIGHLIGHT = "highlight";
         static final String SORT = "sort";
         static final String MATCHED_QUERIES = "matched_queries";
@@ -565,20 +629,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     // public because we render hit as part of completion suggestion option
     public XContentBuilder toInnerXContent(XContentBuilder builder, Params params) throws IOException {
-        List<DocumentField> metaFields = new ArrayList<>();
-        List<DocumentField> otherFields = new ArrayList<>();
-        if (fields != null && !fields.isEmpty()) {
-            for (DocumentField field : fields.values()) {
-                if (field.getValues().isEmpty()) {
-                    continue;
-                }
-                if (field.isMetadataField()) {
-                    metaFields.add(field);
-                } else {
-                    otherFields.add(field);
-                }
-            }
-        }
 
         // For inner_hit hits shard is null and that is ok, because the parent search hit has all this information.
         // Even if this was included in the inner_hit hits this would be the same, so better leave it out.
@@ -612,7 +662,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         } else {
             builder.field(Fields._SCORE, score);
         }
-        for (DocumentField field : metaFields) {
+        for (DocumentField field : metaFields.values()) {
             // _ignored is the only multi-valued meta field
             // TODO: can we avoid having an exception here?
             if (field.getName().equals(IgnoredFieldMapper.NAME)) {
@@ -624,9 +674,16 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (source != null) {
             XContentHelper.writeRawField(SourceFieldMapper.NAME, source, builder, params);
         }
-        if (!otherFields.isEmpty()) {
-            builder.startObject(Fields.FIELDS);
-            for (DocumentField field : otherFields) {
+        if (!documentFields.isEmpty()) {
+            builder.startObject(Fields.DOCUMENT_FIELDS);
+            for (DocumentField field : documentFields.values()) {
+                field.toXContent(builder, params);
+            }
+            builder.endObject();
+        }
+        if (!metaFields.isEmpty()) {
+            builder.startObject(Fields.METADATA_FIELDS);
+            for (DocumentField field : metaFields.values()) {
                 field.toXContent(builder, params);
             }
             builder.endObject();
@@ -700,10 +757,15 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         parser.declareObject((map, value) -> map.put(Fields.HIGHLIGHT, value), (p, c) -> parseHighlightFields(p),
                 new ParseField(Fields.HIGHLIGHT));
         parser.declareObject((map, value) -> {
-            Map<String, DocumentField> fieldMap = get(Fields.FIELDS, map, new HashMap<String, DocumentField>());
+            Map<String, DocumentField> fieldMap = get(Fields.METADATA_FIELDS, map, new HashMap<String, DocumentField>());
             fieldMap.putAll(value);
-            map.put(Fields.FIELDS, fieldMap);
-        }, (p, c) -> parseFields(p), new ParseField(Fields.FIELDS));
+            map.put(Fields.METADATA_FIELDS, fieldMap);
+        }, (p, c) -> parseFields(p), new ParseField(Fields.METADATA_FIELDS));
+        parser.declareObject((map, value) -> {
+            Map<String, DocumentField> fieldMap = get(Fields.DOCUMENT_FIELDS, map, new HashMap<String, DocumentField>());
+            fieldMap.putAll(value);
+            map.put(Fields.DOCUMENT_FIELDS, fieldMap);
+        }, (p, c) -> parseFields(p), new ParseField(Fields.DOCUMENT_FIELDS));
         parser.declareObject((map, value) -> map.put(Fields._EXPLANATION, value), (p, c) -> parseExplanation(p),
                 new ParseField(Fields._EXPLANATION));
         parser.declareObject((map, value) -> map.put(NestedIdentity._NESTED, value), NestedIdentity::fromXContent,
@@ -719,9 +781,10 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         String id = get(Fields._ID, values, null);
         Text type = get(Fields._TYPE, values, null);
         NestedIdentity nestedIdentity = get(NestedIdentity._NESTED, values, null);
-        Map<String, DocumentField> fields = get(Fields.FIELDS, values, Collections.emptyMap());
+        Map<String, DocumentField> metaFields = get(Fields.METADATA_FIELDS, values, Collections.emptyMap());
+        Map<String, DocumentField> documentFields = get(Fields.DOCUMENT_FIELDS, values, Collections.emptyMap());
 
-        SearchHit searchHit = new SearchHit(-1, id, type, nestedIdentity, fields);
+        SearchHit searchHit = new SearchHit(-1, id, type, nestedIdentity, documentFields, metaFields);
         String index = get(Fields._INDEX, values, null);
         String clusterAlias = null;
         if (index != null) {
@@ -792,7 +855,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
                 if (metadatafield.equals(IgnoredFieldMapper.NAME)) {
                     parser.declareObjectArray((map, list) -> {
                             @SuppressWarnings("unchecked")
-                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(Fields.FIELDS,
+                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(Fields.METADATA_FIELDS,
                                 v -> new HashMap<String, DocumentField>());
                             DocumentField field = new DocumentField(metadatafield, list);
                             fieldMap.put(field.getName(), field);
@@ -801,7 +864,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
                 } else {
                     parser.declareField((map, field) -> {
                             @SuppressWarnings("unchecked")
-                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(Fields.FIELDS,
+                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(Fields.METADATA_FIELDS,
                                 v -> new HashMap<String, DocumentField>());
                             fieldMap.put(field.getName(), field);
                         }, (p, c) -> new DocumentField(metadatafield, Collections.singletonList(parseFieldsValue(p))),
@@ -902,7 +965,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
                 && Objects.equals(seqNo, other.seqNo)
                 && Objects.equals(primaryTerm, other.primaryTerm)
                 && Objects.equals(source, other.source)
-                && Objects.equals(fields, other.fields)
+                && Objects.equals(documentFields, other.documentFields)
+                && Objects.equals(metaFields, other.metaFields)
                 && Objects.equals(getHighlightFields(), other.getHighlightFields())
                 && Arrays.equals(matchedQueries, other.matchedQueries)
                 && Objects.equals(explanation, other.explanation)
@@ -914,7 +978,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, type, nestedIdentity, version, seqNo, primaryTerm, source, fields, getHighlightFields(),
+        return Objects.hash(id, type, nestedIdentity, version, seqNo, primaryTerm, source, documentFields, metaFields, getHighlightFields(),
             Arrays.hashCode(matchedQueries), explanation, shard, innerHits, index, clusterAlias);
     }
 
