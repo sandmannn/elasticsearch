@@ -170,7 +170,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (in.readBoolean()) {
             explanation = readExplanation(in);
         }
-        
         if (in.getVersion().onOrAfter(Version.V_7_0_0)) {
             documentFields = readFields(in);
             metaFields = readFields(in);            
@@ -181,9 +180,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             splitFieldsByMetadata(fields, documentFields, metaFields);
         }
 
-        
-        int size = in.readVInt();
 
+        int size = in.readVInt();
         if (size == 0) {
             highlightFields = emptyMap();
         } else if (size == 1) {
@@ -247,18 +245,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         } else {
             writeFields(out, this.getFields());                
         }
-        
-        
-//        if (fields == null) {
-//            out.writeVInt(0);
-//        } else {
-//            out.writeVInt(fields.size());
-//            for (DocumentField hitField : getFields().values()) {
-//                hitField.writeTo(out);
-//            }
-//        }
-
-        
         if (highlightFields == null) {
             out.writeVInt(0);
         } else {
@@ -304,6 +290,17 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         return fields;
     }
 
+    private void writeFields(StreamOutput out,  Map<String, DocumentField> fields) throws IOException {
+        if (fields == null) {
+            out.writeVInt(0);
+        } else {
+            out.writeVInt(fields.size());
+            for (DocumentField field : fields.values()) {
+                field.writeTo(out);
+            }
+        }
+    }
+
     private void splitFieldsByMetadata(Map<String, DocumentField> fields, Map<String, DocumentField> outOther,
                                        Map<String, DocumentField> outMetadata) {
         for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
@@ -315,17 +312,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         }
     }
     
-    private void writeFields(StreamOutput out,  Map<String, DocumentField> fields) throws IOException {
-        if (fields == null) {
-            out.writeVInt(0);
-        } else {
-            out.writeVInt(fields.size());
-            for (DocumentField field : fields.values()) {
-                field.writeTo(out);
-            }
-        }
-    }
-    
+
     public int docId() {
         return this.docId;
     }
