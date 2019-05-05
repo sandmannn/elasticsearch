@@ -34,6 +34,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.lucene.Lucene;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.XContent;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.support.XContentMapValues;
@@ -328,6 +329,22 @@ public final class KeywordFieldMapper extends FieldMapper {
         return (KeywordFieldType) super.fieldType();
     }
 
+    /** Reads preview of objects / lists
+    */
+    private String readObjectPreview(XContentParser parser) throws IOException {
+        StringBuffer sb = new StringBuffer();
+        char[] parserBuffer = parser.textCharacters();
+        int peekNumChars = 10;
+        int offset = parser.textOffset();
+        return new String(parserBuffer, offset, Math.min(parserBuffer.length, offset + peekNumChars) - offset);
+    }
+
+    public class KeywordFieldParsingException extends RuntimeException {
+        public KeywordFieldParsingException(String partialValue, Throwable e) {
+            super(partialValue, e);
+        }
+    }
+
     @Override
     protected void parseCreateField(ParseContext context, List<IndexableField> fields) throws IOException {
         String value;
@@ -338,49 +355,60 @@ public final class KeywordFieldMapper extends FieldMapper {
             if (parser.currentToken() == XContentParser.Token.VALUE_NULL) {
                 value = fieldType().nullValueAsString();
             } else {
+                if (!parser.currentToken().isValue()) {
+                    // try to read few more tokens and die.
+                    String partialValue = this.readObjectPreview(parser);
+                    throw new KeywordFieldParsingException(partialValue, null);
+                }
                 value =  parser.textOrNull();
             }
         }
 
-        if (value == null || value.length() > ignoreAbove) {
-            return;
-        }
-
-        final NamedAnalyzer normalizer = fieldType().normalizer();
-        if (normalizer != null) {
-            try (TokenStream ts = normalizer.tokenStream(name(), value)) {
-                final CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
-                ts.reset();
-                if (ts.incrementToken() == false) {
-                  throw new IllegalStateException("The normalization token stream is "
-                      + "expected to produce exactly 1 token, but got 0 for analyzer "
-                      + normalizer + " and input \"" + value + "\"");
-                }
-                final String newValue = termAtt.toString();
-                if (ts.incrementToken()) {
-                  throw new IllegalStateException("The normalization token stream is "
-                      + "expected to produce exactly 1 token, but got 2+ for analyzer "
-                      + normalizer + " and input \"" + value + "\"");
-                }
-                ts.end();
-                value = newValue;
+        // assuming correct partial parsing component is in "value"
+        try {
+            if (value == null || value.length() > ignoreAbove) {
+                return;
             }
-        }
 
-        // convert to utf8 only once before feeding postings/dv/stored fields
-        final BytesRef binaryValue = new BytesRef(value);
-        if (fieldType().indexOptions() != IndexOptions.NONE || fieldType().stored())  {
-            Field field = new Field(fieldType().name(), binaryValue, fieldType());
-            fields.add(field);
-
-            if (fieldType().hasDocValues() == false && fieldType().omitNorms()) {
-                createFieldNamesField(context, fields);
+            final NamedAnalyzer normalizer = fieldType().normalizer();
+            if (normalizer != null) {
+                try (TokenStream ts = normalizer.tokenStream(name(), value)) {
+                    final CharTermAttribute termAtt = ts.addAttribute(CharTermAttribute.class);
+                    ts.reset();
+                    if (ts.incrementToken() == false) {
+                      throw new IllegalStateException("The normalization token stream is "
+                          + "expected to produce exactly 1 token, but got 0 for analyzer "
+                          + normalizer + " and input \"" + value + "\"");
+                    }
+                    final String newValue = termAtt.toString();
+                    if (ts.incrementToken()) {
+                      throw new IllegalStateException("The normalization token stream is "
+                          + "expected to produce exactly 1 token, but got 2+ for analyzer "
+                          + normalizer + " and input \"" + value + "\"");
+                    }
+                    ts.end();
+                    value = newValue;
+                }
             }
+
+            // convert to utf8 only once before feeding postings/dv/stored fields
+            final BytesRef binaryValue = new BytesRef(value);
+            if (fieldType().indexOptions() != IndexOptions.NONE || fieldType().stored())  {
+                Field field = new Field(fieldType().name(), binaryValue, fieldType());
+                fields.add(field);
+
+                if (fieldType().hasDocValues() == false && fieldType().omitNorms()) {
+                    createFieldNamesField(context, fields);
+                }
+            }
+
+            if (fieldType().hasDocValues()) {
+                fields.add(new SortedSetDocValuesField(fieldType().name(), binaryValue));
+            }
+        } catch (Exception e) {
+            throw new KeywordFieldParsingException(value, e);
         }
 
-        if (fieldType().hasDocValues()) {
-            fields.add(new SortedSetDocValuesField(fieldType().name(), binaryValue));
-        }
     }
     @Override
     protected String contentType() {

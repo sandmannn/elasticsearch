@@ -275,6 +275,9 @@ public abstract class FieldMapper extends Mapper implements Cloneable {
             for (IndexableField field : fields) {
                 context.doc().add(field);
             }
+        } catch ( KeywordFieldMapper.KeywordFieldParsingException e) {
+            throw new MapperParsingException("failed to parse field [{}] with partial parsed value [{}] of type [{}] in document with id '{}'",
+                e.getCause(), fieldType().name(), e.getMessage() ,fieldType().typeName(), context.sourceToParse().id());
         } catch (Exception e) {
             throw new MapperParsingException("failed to parse field [{}] of type [{}] in document with id '{}'", e, fieldType().name(),
                     fieldType().typeName(), context.sourceToParse().id());
