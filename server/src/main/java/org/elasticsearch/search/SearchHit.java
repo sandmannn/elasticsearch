@@ -168,7 +168,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (in.readBoolean()) {
             explanation = readExplanation(in);
         }
-        if (in.getVersion().onOrAfter(Version.V_8_0_0)) {
+        if (in.getVersion().onOrAfter(Version.V_7_3_0)) {
             documentFields = readFields(in);
             metaFields = readFields(in);            
         } else {
@@ -235,7 +235,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             writeExplanation(out, explanation);
         }
 
-        if (out.getVersion().onOrAfter(Version.V_8_0_0)) {
+        if (out.getVersion().onOrAfter(Version.V_7_3_0)) {
             writeFields(out, documentFields);
             writeFields(out, metaFields);
         } else {
@@ -488,11 +488,9 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
     }
 
     public void fields(Map<String, DocumentField> fields) {
-        this.metaFields.clear();
-        this.documentFields.clear();
-        if (fields == null) {            
-            return;
-        }
+        Objects.requireNonNull(fields);
+        this.metaFields = new HashMap<String, DocumentField>();
+        this.documentFields = new HashMap<String, DocumentField>();
         for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
             if (fieldEntry.getValue().isMetadataField()) {
                 this.metaFields.put(fieldEntry.getKey(), fieldEntry.getValue());
@@ -606,6 +604,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         static final String _SEQ_NO = "_seq_no";
         static final String _PRIMARY_TERM = "_primary_term";
         static final String _SCORE = "_score";
+        static final String FIELDS = "fields";
         static final String DOCUMENT_FIELDS = "document_fields";
         static final String METADATA_FIELDS = "metadata_fields";
         static final String HIGHLIGHT = "highlight";
@@ -676,15 +675,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             XContentHelper.writeRawField(SourceFieldMapper.NAME, source, builder, params);
         }
         if (!documentFields.isEmpty()) {
-            builder.startObject(Fields.DOCUMENT_FIELDS);
+            builder.startObject(Fields.FIELDS);
             for (DocumentField field : documentFields.values()) {
-                field.toXContent(builder, params);
-            }
-            builder.endObject();
-        }
-        if (!metaFields.isEmpty()) {
-            builder.startObject(Fields.METADATA_FIELDS);
-            for (DocumentField field : metaFields.values()) {
                 field.toXContent(builder, params);
             }
             builder.endObject();
@@ -758,15 +750,10 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         parser.declareObject((map, value) -> map.put(Fields.HIGHLIGHT, value), (p, c) -> parseHighlightFields(p),
                 new ParseField(Fields.HIGHLIGHT));
         parser.declareObject((map, value) -> {
-            Map<String, DocumentField> fieldMap = get(Fields.METADATA_FIELDS, map, new HashMap<String, DocumentField>());
-            fieldMap.putAll(value);
-            map.put(Fields.METADATA_FIELDS, fieldMap);
-        }, (p, c) -> parseFields(p), new ParseField(Fields.METADATA_FIELDS));
-        parser.declareObject((map, value) -> {
-            Map<String, DocumentField> fieldMap = get(Fields.DOCUMENT_FIELDS, map, new HashMap<String, DocumentField>());
+            Map<String, DocumentField> fieldMap = get(Fields.FIELDS, map, new HashMap<String, DocumentField>());
             fieldMap.putAll(value);
             map.put(Fields.DOCUMENT_FIELDS, fieldMap);
-        }, (p, c) -> parseFields(p), new ParseField(Fields.DOCUMENT_FIELDS));
+        }, (p, c) -> parseFields(p), new ParseField(Fields.FIELDS));
         parser.declareObject((map, value) -> map.put(Fields._EXPLANATION, value), (p, c) -> parseExplanation(p),
                 new ParseField(Fields._EXPLANATION));
         parser.declareObject((map, value) -> map.put(NestedIdentity._NESTED, value), NestedIdentity::fromXContent,
