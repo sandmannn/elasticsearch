@@ -366,9 +366,6 @@ public class FetchPhase implements SearchPhase {
 
 
         return new SearchHit(nestedTopDocId, uid.id(), documentMapper.typeText(), nestedIdentity, documentFields, metaFields);
-
-
-        // return new SearchHit(nestedTopDocId, uid.id(), documentMapper.typeText(), nestedIdentity, searchMetaFields, searchDocumentFields);
     }
 
     private SearchHit.NestedIdentity getInternalNestedIdentity(SearchContext context, int nestedSubDocId,
