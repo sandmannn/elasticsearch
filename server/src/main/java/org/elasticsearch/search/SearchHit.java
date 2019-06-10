@@ -297,13 +297,13 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         }
     }
 
-    private void splitFieldsByMetadata(Map<String, DocumentField> fields, Map<String, DocumentField> outOther,
+    private void splitFieldsByMetadata(Map<String, DocumentField> fields, Map<String, DocumentField> outDocument,
                                        Map<String, DocumentField> outMetadata) {
         for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
             if (fieldEntry.getValue().isMetadataField()) {
                 outMetadata.put(fieldEntry.getKey(), fieldEntry.getValue());
             } else {
-                outOther.put(fieldEntry.getKey(), fieldEntry.getValue());                
+                outDocument.put(fieldEntry.getKey(), fieldEntry.getValue());
             }
         }
     }
