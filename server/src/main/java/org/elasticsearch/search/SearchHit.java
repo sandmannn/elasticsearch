@@ -234,7 +234,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             writeExplanation(out, explanation);
         }
 
-        if (out.getVersion().onOrAfter(Version.V_7_3_0)) {
+        if (out.getVersion().onOrAfter(Version.V_7_4_0)) {
             writeFields(out, documentFields);
             writeFields(out, metaFields);
         } else {
