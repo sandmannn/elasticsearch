@@ -281,10 +281,10 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         }  else {
             fields = new HashMap<>(size);
             for (int i = 0; i < size; i++) {
-                DocumentField field = DocumentField.readDocumentField(in);
+                DocumentField field = new DocumentField(in);
                 fields.put(field.getName(), field);
             }
-            this.fields = unmodifiableMap(fields);
+            fields = unmodifiableMap(fields);
         }
         return fields;
     }
