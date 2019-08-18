@@ -131,6 +131,8 @@ public abstract class ESBlobStoreRepositoryIntegTestCase extends ESIntegTestCase
                 }
             }
 
+            // Wait for green so the close does not fail in the edge case of coinciding with a shard recovery that hasn't fully synced yet
+            ensureGreen();
             logger.info("-->  close indices {}", closeIndices);
             assertAcked(client().admin().indices().prepareClose(closeIndices.toArray(new String[closeIndices.size()])));
         }
@@ -148,7 +150,7 @@ public abstract class ESBlobStoreRepositoryIntegTestCase extends ESIntegTestCase
         assertAcked(client().admin().cluster().prepareDeleteSnapshot(repoName, snapshotName).get());
 
         expectThrows(SnapshotMissingException.class, () ->
-            client().admin().cluster().prepareGetSnapshots(repoName).setSnapshots(snapshotName).get());
+            client().admin().cluster().prepareGetSnapshots(repoName).setSnapshots(snapshotName).get().getSnapshots(repoName));
 
         expectThrows(SnapshotMissingException.class, () ->
             client().admin().cluster().prepareDeleteSnapshot(repoName, snapshotName).get());
@@ -195,6 +197,8 @@ public abstract class ESBlobStoreRepositoryIntegTestCase extends ESIntegTestCase
             int iterationToRestore = randomIntBetween(0, iterationCount - 1);
             logger.info("-->  performing restore of the iteration {}", iterationToRestore);
 
+            // Wait for green so the close does not fail in the edge case of coinciding with a shard recovery that hasn't fully synced yet
+            ensureGreen();
             logger.info("-->  close index");
             assertAcked(client().admin().indices().prepareClose(indexName));
 
@@ -269,7 +273,7 @@ public abstract class ESBlobStoreRepositoryIntegTestCase extends ESIntegTestCase
         latch.await();
         for (IndexId indexId : repositoryData.get().getIndices().values()) {
             if (indexId.getName().equals("test-idx-3")) {
-                assertFalse(indicesBlobContainer.get().blobExists(indexId.getId())); // deleted index
+                assertFalse(BlobStoreTestUtil.blobExists(indicesBlobContainer.get(), indexId.getId())); // deleted index
             }
         }
     }
@@ -311,6 +315,8 @@ public abstract class ESBlobStoreRepositoryIntegTestCase extends ESIntegTestCase
             addRandomDocuments(indexName, extraDocCount);
         }
 
+        // Wait for green so the close does not fail in the edge case of coinciding with a shard recovery that hasn't fully synced yet
+        ensureGreen();
         logger.info("-->  close index {}", indexName);
         assertAcked(client().admin().indices().prepareClose(indexName));
 

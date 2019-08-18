@@ -72,7 +72,6 @@ import static org.elasticsearch.common.xcontent.ConstructingObjectParser.optiona
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureFieldName;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.parseFieldsValue;
-import static org.elasticsearch.search.fetch.subphase.highlight.HighlightField.readHighlightField;
 
 /**
  * A single search hit.
@@ -168,7 +167,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (in.readBoolean()) {
             explanation = readExplanation(in);
         }
-        if (in.getVersion().onOrAfter(Version.V_7_3_0)) {
+        if (in.getVersion().onOrAfter(Version.V_7_4_0)) {
             documentFields = readFields(in);
             metaFields = readFields(in);            
         } else {
@@ -183,12 +182,12 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (size == 0) {
             highlightFields = emptyMap();
         } else if (size == 1) {
-            HighlightField field = readHighlightField(in);
+            HighlightField field = new HighlightField(in);
             highlightFields = singletonMap(field.name(), field);
         } else {
             Map<String, HighlightField> highlightFields = new HashMap<>();
             for (int i = 0; i < size; i++) {
-                HighlightField field = readHighlightField(in);
+                HighlightField field = new HighlightField(in);
                 highlightFields.put(field.name(), field);
             }
             this.highlightFields = unmodifiableMap(highlightFields);
@@ -276,12 +275,16 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         int size = in.readVInt();
         if (size == 0) {
             fields = emptyMap();
-        } else {
+        } else if (size == 1) {
+            DocumentField hitField = new DocumentField(in);
+            fields = singletonMap(hitField.getName(), hitField);
+        }  else {
             fields = new HashMap<>(size);
             for (int i = 0; i < size; i++) {
                 DocumentField field = DocumentField.readDocumentField(in);
                 fields.put(field.getName(), field);
             }
+            this.fields = unmodifiableMap(fields);
         }
         return fields;
     }
