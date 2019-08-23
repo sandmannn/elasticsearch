@@ -461,9 +461,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
     public Iterator<DocumentField> iterator() {
         // need to join the fields and metadata fields
         Map<String, DocumentField> allFields = this.getFields();
-        if (allFields == null) {
-            return Collections.emptyIterator();
-        }
         return allFields.values().iterator();
     }
 

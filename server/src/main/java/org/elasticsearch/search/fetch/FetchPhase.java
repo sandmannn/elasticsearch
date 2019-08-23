@@ -213,8 +213,8 @@ public class FetchPhase implements SearchPhase {
         Map<String, DocumentField> searchFields = getSearchFields(context, fieldsVisitor, subDocId,
             storedToRequestedFields, subReaderContext);
         
-        Map<String, DocumentField> metaFields = new HashMap<>(), 
-                documentFields = new HashMap<>();
+        Map<String, DocumentField> metaFields = new HashMap<>();
+        Map<String, DocumentField> documentFields = new HashMap<>();
         splitSearchHitFields(searchFields, documentFields, metaFields);
 
         SearchHit searchHit = new SearchHit(docId, fieldsVisitor.uid().id(), typeText, documentFields, metaFields);
