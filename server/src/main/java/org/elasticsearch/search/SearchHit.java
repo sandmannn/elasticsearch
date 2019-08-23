@@ -605,8 +605,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         static final String _PRIMARY_TERM = "_primary_term";
         static final String _SCORE = "_score";
         static final String FIELDS = "fields";
-//        static final String DOCUMENT_FIELDS = "document_fields";
-//        static final String METADATA_FIELDS = "metadata_fields";
+        static final String DOCUMENT_FIELDS = "document_fields";
+        static final String METADATA_FIELDS = "metadata_fields";
         static final String HIGHLIGHT = "highlight";
         static final String SORT = "sort";
         static final String MATCHED_QUERIES = "matched_queries";
