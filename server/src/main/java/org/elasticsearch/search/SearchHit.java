@@ -605,8 +605,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         static final String _PRIMARY_TERM = "_primary_term";
         static final String _SCORE = "_score";
         static final String FIELDS = "fields";
-        static final String DOCUMENT_FIELDS = "document_fields";
-        static final String METADATA_FIELDS = "metadata_fields";
         static final String HIGHLIGHT = "highlight";
         static final String SORT = "sort";
         static final String MATCHED_QUERIES = "matched_queries";
@@ -618,6 +616,12 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         static final String _SHARD = "_shard";
         static final String _NODE = "_node";
     }
+
+    // Following are the keys for storing the metadata fields and regular fields in the aggregation map.
+    // These do not influence the structure of json serialization: document fields are still stored
+    // under FIELDS and metadata are still scattered at the root level.
+    static final String DOCUMENT_FIELDS = "document_fields";
+    static final String METADATA_FIELDS = "metadata_fields";
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
@@ -752,7 +756,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         parser.declareObject((map, value) -> {
             Map<String, DocumentField> fieldMap = get(Fields.FIELDS, map, new HashMap<String, DocumentField>());
             fieldMap.putAll(value);
-            map.put(Fields.DOCUMENT_FIELDS, fieldMap);
+            map.put(DOCUMENT_FIELDS, fieldMap);
         }, (p, c) -> parseFields(p), new ParseField(Fields.FIELDS));
         parser.declareObject((map, value) -> map.put(Fields._EXPLANATION, value), (p, c) -> parseExplanation(p),
                 new ParseField(Fields._EXPLANATION));
@@ -769,8 +773,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         String id = get(Fields._ID, values, null);
         Text type = get(Fields._TYPE, values, null);
         NestedIdentity nestedIdentity = get(NestedIdentity._NESTED, values, null);
-        Map<String, DocumentField> metaFields = get(Fields.METADATA_FIELDS, values, Collections.emptyMap());
-        Map<String, DocumentField> documentFields = get(Fields.DOCUMENT_FIELDS, values, Collections.emptyMap());
+        Map<String, DocumentField> metaFields = get(METADATA_FIELDS, values, Collections.emptyMap());
+        Map<String, DocumentField> documentFields = get(DOCUMENT_FIELDS, values, Collections.emptyMap());
 
         SearchHit searchHit = new SearchHit(-1, id, type, nestedIdentity, documentFields, metaFields);
         String index = get(Fields._INDEX, values, null);
@@ -843,7 +847,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
                 if (metadatafield.equals(IgnoredFieldMapper.NAME)) {
                     parser.declareObjectArray((map, list) -> {
                             @SuppressWarnings("unchecked")
-                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(Fields.METADATA_FIELDS,
+                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(METADATA_FIELDS,
                                 v -> new HashMap<String, DocumentField>());
                             DocumentField field = new DocumentField(metadatafield, list);
                             fieldMap.put(field.getName(), field);
@@ -852,7 +856,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
                 } else {
                     parser.declareField((map, field) -> {
                             @SuppressWarnings("unchecked")
-                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(Fields.METADATA_FIELDS,
+                            Map<String, DocumentField> fieldMap = (Map<String, DocumentField>) map.computeIfAbsent(METADATA_FIELDS,
                                 v -> new HashMap<String, DocumentField>());
                             fieldMap.put(field.getName(), field);
                         }, (p, c) -> new DocumentField(metadatafield, Collections.singletonList(parseFieldsValue(p))),
