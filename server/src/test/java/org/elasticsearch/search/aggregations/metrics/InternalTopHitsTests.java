@@ -45,15 +45,7 @@ import org.elasticsearch.test.InternalAggregationTestCase;
 import org.elasticsearch.test.NotEqualMessageBuilder;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -103,7 +95,7 @@ public class InternalTopHitsTests extends InternalAggregationTestCase<InternalTo
             } else {
                 scoreDocs[i] = new ScoreDoc(docId, score);
             }
-            hits[i] = new SearchHit(docId, Integer.toString(i), searchHitFields);
+            hits[i] = new SearchHit(docId, Integer.toString(i), searchHitFields, Collections.emptyMap());
             hits[i].score(score);
         }
         int totalHits = between(actualSize, 500000);
