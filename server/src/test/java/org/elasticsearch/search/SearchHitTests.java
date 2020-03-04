@@ -78,7 +78,6 @@ public class SearchHitTests extends AbstractWireSerializingTestCase<SearchHit> {
                 fields = GetResultTests.randomDocumentFields(xContentType).v2();
             }
         }
-//        SearchHit hit = new SearchHit(internalId, uid, nestedIdentity, fields);
         HashMap<String, DocumentField> metaFields = new HashMap<>();
         HashMap<String, DocumentField> documentFields = new HashMap<>();
         for (Map.Entry<String, DocumentField> fieldEntry: fields.entrySet()) {
