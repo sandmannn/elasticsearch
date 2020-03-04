@@ -71,7 +71,7 @@ public class SearchHitTests extends AbstractWireSerializingTestCase<SearchHit> {
         if (randomBoolean()) {
             nestedIdentity = NestedIdentityTests.createTestItem(randomIntBetween(0, 2));
         }
-        Map<String, DocumentField> fields = null;
+        Map<String, DocumentField> fields = new HashMap<>();
         if (frequently()) {
             fields = new HashMap<>();
             if (randomBoolean()) {
