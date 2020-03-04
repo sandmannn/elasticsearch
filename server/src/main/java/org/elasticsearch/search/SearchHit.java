@@ -168,7 +168,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (in.readBoolean()) {
             explanation = readExplanation(in);
         }
-        if (in.getVersion().onOrAfter(Version.V_7_4_0)) {
+        if (in.getVersion().onOrAfter(Version.V_8_0_0)) {
             documentFields = readFields(in);
             metaFields = readFields(in);
         } else {
@@ -294,17 +294,11 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             out.writeBoolean(true);
             writeExplanation(out, explanation);
         }
-        if (out.getVersion().onOrAfter(Version.V_7_4_0)) {
+        if (out.getVersion().onOrAfter(Version.V_8_0_0)) {
             writeFields(out, documentFields);
             writeFields(out, metaFields);
-//        if (fields == null) {
-//            out.writeVInt(0);
         } else {
             writeFields(out, this.getFields());
-//            out.writeVInt(fields.size());
-//            for (DocumentField hitField : getFields().values()) {
-//                hitField.writeTo(out);
-//            }
         }
         if (highlightFields == null) {
             out.writeVInt(0);
