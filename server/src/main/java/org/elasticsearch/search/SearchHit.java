@@ -23,7 +23,6 @@ import org.apache.lucene.search.Explanation;
 import org.elasticsearch.ElasticsearchParseException;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.OriginalIndices;
-import org.elasticsearch.Version;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.ParsingException;
@@ -96,7 +95,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     private BytesReference source;
 
-//    private Map<String, DocumentField> fields;
     private Map<String, DocumentField> documentFields;
     private Map<String, DocumentField> metaFields;
 
@@ -176,20 +174,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             documentFields = new HashMap<>();
             metaFields = new HashMap<>();
             splitFieldsByMetadata(fields, documentFields, metaFields);
-
-//        int size = in.readVInt();
-//        if (size == 0) {
-//            fields = emptyMap();
-//        } else if (size == 1) {
-//            DocumentField hitField = new DocumentField(in);
-//            fields = singletonMap(hitField.getName(), hitField);
-//        } else {
-//            Map<String, DocumentField> fields = new HashMap<>();
-//            for (int i = 0; i < size; i++) {
-//                DocumentField hitField = new DocumentField(in);
-//                fields.put(hitField.getName(), hitField);
-//            }
-//            this.fields = unmodifiableMap(fields);
         }
 
         int size = in.readVInt();
@@ -466,7 +450,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     @Override
     public Iterator<DocumentField> iterator() {
-//        return fields.values().iterator();
         // need to join the fields and metadata fields
         Map<String, DocumentField> allFields = this.getFields();
         return allFields.values().iterator();
@@ -640,21 +623,6 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
     // public because we render hit as part of completion suggestion option
     public XContentBuilder toInnerXContent(XContentBuilder builder, Params params) throws IOException {
-//        List<DocumentField> metaFields = new ArrayList<>();
-//        List<DocumentField> otherFields = new ArrayList<>();
-//        if (fields != null && !fields.isEmpty()) {
-//            for (DocumentField field : fields.values()) {
-//                if (field.getValues().isEmpty()) {
-//                    continue;
-//                }
-//                if (field.isMetadataField()) {
-//                    metaFields.add(field);
-//                } else {
-//                    otherFields.add(field);
-//                }
-//            }
-//        }
-
         // For inner_hit hits shard is null and that is ok, because the parent search hit has all this information.
         // Even if this was included in the inner_hit hits this would be the same, so better leave it out.
         if (getExplanation() != null && shard != null) {
