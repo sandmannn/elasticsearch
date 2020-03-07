@@ -360,7 +360,7 @@ public class FetchPhase implements SearchPhase {
 
         Map<String, DocumentField> metaFields = new HashMap<>(),
             documentFields = new HashMap<>();
-        splitSearchHitFields(searchFields, documentFields, metaFields);
+        SearchHit.splitFieldsByMetadata(searchFields, documentFields, metaFields);
 
         return new SearchHit(nestedTopDocId, id, nestedIdentity, documentFields, metaFields);
     }
