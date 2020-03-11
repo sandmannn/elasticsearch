@@ -183,6 +183,13 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             }
 //            this.fields = unmodifiableMap(fields);
         }
+        if (this.documentFields == null) {
+            this.documentFields = new HashMap<>();
+        }
+        if (this.metaFields == null) {
+            this.metaFields = new HashMap<>();
+        }
+
         SearchHit.splitFieldsByMetadata(fields, documentFields, metaFields);
 
 
@@ -295,14 +302,22 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 //            out.writeMap(documentFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
 //            out.writeMap(metaFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
 //        } else {
-            writeFields(out, this.getFields());
+//            writeFields(out, this.getFields());
 //        }
 
 
-//        out.writeVInt(fields.size());
-//        for (DocumentField hitField : getFields().values()) {
-//            hitField.writeTo(out);
-//        }
+
+        Map<String, DocumentField> fields = getFields();
+        if (fields == null) {
+            out.writeVInt(0);
+        } else {
+            out.writeVInt(fields.size());
+            for (DocumentField hitField : getFields().values()) {
+                hitField.writeTo(out);
+            }
+        }
+
+
 
 
         if (highlightFields == null) {
