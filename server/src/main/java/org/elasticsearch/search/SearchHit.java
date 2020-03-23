@@ -716,9 +716,24 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (source != null) {
             XContentHelper.writeRawField(SourceFieldMapper.NAME, source, builder, params);
         }
-        if (!documentFields.isEmpty()) {
+
+//        TODO: remove temporary loggers
+        Map<String, DocumentField> allFields = getFields();
+        System.out.println("mew");
+        System.out.println(allFields.size());
+        System.out.println(documentFields.size());
+        System.out.println(metaFields.size());
+
+
+        /*
+        *  getFields()
+        *
+        * */
+
+
+        if (!allFields.isEmpty()) {
             builder.startObject(Fields.FIELDS);
-            for (DocumentField field : documentFields.values()) {
+            for (DocumentField field : allFields.values()) {
                 field.toXContent(builder, params);
             }
             builder.endObject();
