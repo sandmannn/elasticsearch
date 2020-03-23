@@ -210,7 +210,8 @@ public class FetchPhase implements SearchPhase {
         Map<String, DocumentField> searchFields = getSearchFields(context, fieldsVisitor, subDocId,
             storedToRequestedFields, subReaderContext);
 
-        System.out.println("FetchPhase:createSearchHit,  searchFields.size():" + searchFields.size());
+        System.out.println("FetchPhase:createSearchHit,  searchFields.size():" + (searchFields==null?
+         "null" : searchFields.size()));
 
         SearchHit searchHit = new SearchHit(docId, fieldsVisitor.id(), searchFields);
         // Set _source if requested.
@@ -339,7 +340,8 @@ public class FetchPhase implements SearchPhase {
             XContentType contentType = tuple.v1();
             context.lookup().source().setSourceContentType(contentType);
         }
-        System.out.println("FetchPhase:createNestedSearchHit,  searchFields.size():" + searchFields.size());
+        System.out.println("FetchPhase:createNestedSearchHit,  searchFields.size():" + (searchFields==null?
+            "null" : searchFields.size()));
 
         return new SearchHit(nestedTopDocId, id, nestedIdentity, searchFields);
     }
