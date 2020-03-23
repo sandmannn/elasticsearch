@@ -128,6 +128,8 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
     }
 
     public SearchHit(int nestedTopDocId, String id, NestedIdentity nestedIdentity, Map<String, DocumentField> fields) {
+        System.out.println("search hit constructor; fields.size():" + fields.size());
+
         this.docId = nestedTopDocId;
         if (id != null) {
             this.id = new Text(id);
@@ -136,6 +138,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         }
         this.nestedIdentity = nestedIdentity;
         this.fields = fields;
+
     }
 
     public SearchHit(StreamInput in) throws IOException {
@@ -571,6 +574,10 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
                 }
             }
         }
+        System.out.println("toInnerXContent,  metaFields.size():" + metaFields.size());
+        System.out.println("toInnerXContent,  otherFields.size():" + otherFields.size());
+
+
 
         // For inner_hit hits shard is null and that is ok, because the parent search hit has all this information.
         // Even if this was included in the inner_hit hits this would be the same, so better leave it out.
