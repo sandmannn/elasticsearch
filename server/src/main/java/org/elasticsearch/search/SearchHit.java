@@ -176,18 +176,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             SearchHit.splitFieldsByMetadata(fields, documentFields, metaFields);
         }
 
-
-//        if (in.getVersion().onOrAfter(Version.V_8_0_0)) {
-//            documentFields = in.readMap(StreamInput::readString, DocumentField::new);
-//            metaFields = in.readMap(StreamInput::readString, DocumentField::new);
-//        } else {
-//            Map<String, DocumentField> fields = readFields(in);
-//            documentFields = new HashMap<>();
-//            metaFields = new HashMap<>();
-//            SearchHit.splitFieldsByMetadata(fields, documentFields, metaFields);
-//        }
-
-        size = in.readVInt();
+        int size = in.readVInt();
         if (size == 0) {
             highlightFields = emptyMap();
         } else if (size == 1) {
@@ -279,18 +268,12 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
             out.writeBoolean(true);
             writeExplanation(out, explanation);
         }
-
-
-
         if (out.getVersion().onOrAfter(Version.V_8_0_0)) {
             out.writeMap(documentFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
             out.writeMap(metaFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
         } else {
             writeFields(out, this.getFields());
         }
-
-
-
         if (highlightFields == null) {
             out.writeVInt(0);
         } else {
@@ -689,11 +672,11 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         }
 
 //        TODO: remove temporary loggers
-        Map<String, DocumentField> allFields = getFields();
-        System.out.println("mew");
-        System.out.println(allFields.size());
-        System.out.println(documentFields.size());
-        System.out.println(metaFields.size());
+//        Map<String, DocumentField> allFields = getFields();
+//        System.out.println("mew");
+//        System.out.println(allFields.size());
+//        System.out.println(documentFields.size());
+//        System.out.println(metaFields.size());
 
 
         /*
@@ -704,7 +687,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
         if (!allFields.isEmpty()) {
             builder.startObject(Fields.FIELDS);
-            for (DocumentField field : allFields.values()) {
+            for (DocumentField field : documentFields.values()) {
                 field.toXContent(builder, params);
             }
             builder.endObject();
