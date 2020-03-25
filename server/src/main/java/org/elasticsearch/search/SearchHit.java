@@ -452,6 +452,18 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         return getFields().get(fieldName);
     }
 
+    /*
+    * Adds a new DocumentField to the map in case both parameters are not null.
+    * */
+    public void setField(String fieldName, DocumentField field) {
+        if (fieldName == null || field == null) return;
+        if (field.isMetadataField()) {
+            this.metaFields.put(fieldName, field);
+        } else {
+            this.documentFields.put(fieldName, field);
+        }
+    }
+
     /**
      * A map of hit fields (from field name to hit fields) if additional fields
      * were required to be loaded.
@@ -679,13 +691,7 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 //        System.out.println(metaFields.size());
 
 
-        /*
-        *  getFields()
-        *
-        * */
-
-
-        if (!allFields.isEmpty()) {
+        if (!documentFields.isEmpty()) {
             builder.startObject(Fields.FIELDS);
             for (DocumentField field : documentFields.values()) {
                 field.toXContent(builder, params);
