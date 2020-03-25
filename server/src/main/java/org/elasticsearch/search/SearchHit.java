@@ -166,31 +166,15 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
         if (in.readBoolean()) {
             explanation = readExplanation(in);
         }
-
-        Map<String, DocumentField> fields = new HashMap<>();
-
-        int size = in.readVInt();
-        if (size == 0) {
-            fields = emptyMap();
-        } else if (size == 1) {
-            DocumentField hitField = new DocumentField(in);
-            fields = singletonMap(hitField.getName(), hitField);
+        if (in.getVersion().onOrAfter(Version.V_8_0_0)) {
+            documentFields = in.readMap(StreamInput::readString, DocumentField::new);
+            metaFields = in.readMap(StreamInput::readString, DocumentField::new);
         } else {
-//            Map<String, DocumentField> fields = new HashMap<>();
-            for (int i = 0; i < size; i++) {
-                DocumentField hitField = new DocumentField(in);
-                fields.put(hitField.getName(), hitField);
-            }
-//            this.fields = unmodifiableMap(fields);
+            Map<String, DocumentField> fields = readFields(in);
+            documentFields = new HashMap<>();
+            metaFields = new HashMap<>();
+            SearchHit.splitFieldsByMetadata(fields, documentFields, metaFields);
         }
-        if (this.documentFields == null) {
-            this.documentFields = new HashMap<>();
-        }
-        if (this.metaFields == null) {
-            this.metaFields = new HashMap<>();
-        }
-
-        SearchHit.splitFieldsByMetadata(fields, documentFields, metaFields);
 
 
 //        if (in.getVersion().onOrAfter(Version.V_8_0_0)) {
@@ -298,25 +282,12 @@ public final class SearchHit implements Writeable, ToXContentObject, Iterable<Do
 
 
 
-//        if (out.getVersion().onOrAfter(Version.V_8_0_0)) {
-//            out.writeMap(documentFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
-//            out.writeMap(metaFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
-//        } else {
-//            writeFields(out, this.getFields());
-//        }
-
-
-
-        Map<String, DocumentField> fields = getFields();
-        if (fields == null) {
-            out.writeVInt(0);
+        if (out.getVersion().onOrAfter(Version.V_8_0_0)) {
+            out.writeMap(documentFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
+            out.writeMap(metaFields, StreamOutput::writeString, (stream, documentField) -> documentField.writeTo(stream));
         } else {
-            out.writeVInt(fields.size());
-            for (DocumentField hitField : getFields().values()) {
-                hitField.writeTo(out);
-            }
+            writeFields(out, this.getFields());
         }
-
 
 
 
